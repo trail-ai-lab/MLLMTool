@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MLLM</title>
+  <script src="/static/index.js"  defer></script>
+</head>
+<body>
+  <button id="start-recording-button" onclick="startRecording()">Start Recording</button>
+  <button id="stop-recording-button" onclick="stopRecording()" disabled>Stop Recording</button>
+  <h2> <b id="recording-status">Status: Waiting to start recording</b></h2>
+  <p> <b>Transcript:</b> </p>
+  <p id="transcript-content">Transcript will appear here after recording.</p>
+  <p><b>Whisper Translation:</b></p>
+  <p id="whisper-translation">Whisper's translated text will appear here after recording.</p>
+  <p> <b>English Translation: </b></p>
+  <p id="english-translation">Translated text will appear here after recording.</p>
+  <p> <b>Spanish Translation:</b> </p>
+  <p id="spanish-translation">Translated text will appear here after recording.</p>
+</body>
+</html>
