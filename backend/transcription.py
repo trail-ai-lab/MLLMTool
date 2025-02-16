@@ -39,7 +39,7 @@ def homepage():
 def record_audio():
     global frames, recording_active, stream
     frames = []
-    
+
     # Continue to record while recording_active is True
     while recording_active:
         data = stream.read(CHUNK, exception_on_overflow=False)
@@ -58,7 +58,7 @@ def start_recording():
     recording_thread = threading.Thread(target=record_audio)
     recording_thread.start()
     print("Recording started...")
-    
+
     return jsonify({"message": "Recording started"})
 
 @app.route('/stop-recording', methods=['GET'])
@@ -90,7 +90,7 @@ def stop_recording():
     audio = AudioSegment.from_wav(output_filename)
     audio = audio + 20  # Increase volume by 10 dB
     audio.export(output_filename.replace(".wav", "_increased_volume.wav"), format="wav")
-    
+
     # Transcribe the audio
     transcribe_audio(output_filename)
 
@@ -125,7 +125,7 @@ def transcribe_audio(file_name):
     operation = client.long_running_recognize(config=config, audio=audio)
     print("Waiting for transcription to complete...")
 
-   
+
     response = operation.result(timeout=500)  # Adjust timeout as needed
 
     # Process the transcription
@@ -138,7 +138,7 @@ def transcribe_audio(file_name):
     transcript_filename = os.path.splitext(os.path.basename(file_name))[0] + "_transcript.txt"
     with open(transcript_filename, "w") as f:
         f.write(transcript_text)
-    
+
     print("Transcription completed and saved as", transcript_filename)
 
     # Translate the transcription to English and Spanish
@@ -163,7 +163,7 @@ def translate_and_save(text, file_name):
 def translate_text(text, target_language):
     # Instantiate a client for Google Cloud Translation
     translate_client = translate.TranslationServiceClient()
-    
+
     # Set up the request with the project ID and text to be translated
     parent = "projects/mllm-transcription-translation/locations/global"
     response = translate_client.translate_text(
@@ -174,7 +174,7 @@ def translate_text(text, target_language):
             "target_language_code": target_language,
         }
     )
-    
+
     # Return the translated text
     return response.translations[0].translated_text
 
@@ -206,19 +206,19 @@ def translation_whisper():
     print("Translating with Whisper...")
     # Ensure the output file path is correct and matches the processed audio file
     processed_filename = os.path.join(SAVE_DIRECTORY, 'test_output_increased_volume.wav')
-    
+
     # Load the Whisper model
-    model = whisper.load_model("medium")  # Use 'base' or another model variant as needed
+    model = whisper.load_model("large")  # Use 'base' or another model variant as needed
 
     # Load the audio file
     audio = AudioSegment.from_file(processed_filename, format="wav")
 
     # Split audio into 30-second chunks
-    chunk_duration = 30 * 1000  # 30 seconds in milliseconds
+    seconds = 30
+    chunk_duration = seconds * 1000  # 30 seconds in milliseconds
     chunks = [audio[i:i + chunk_duration] for i in range(0, len(audio), chunk_duration)]
 
     all_transcriptions = []
-    all_translations = []
 
     for idx, chunk in enumerate(chunks):
         print(f"Processing chunk {idx + 1}/{len(chunks)}...")
@@ -227,30 +227,18 @@ def translation_whisper():
         temp_chunk_path = os.path.join(SAVE_DIRECTORY, f"temp_chunk_{idx}.wav")
         chunk.export(temp_chunk_path, format="wav")
 
-        # Load the chunk using Whisper
-        chunk_audio = whisper.load_audio(temp_chunk_path)
-        chunk_audio = whisper.pad_or_trim(chunk_audio)
-
-        # Make log-Mel spectrogram and move it to the device used by the model
-        mel = whisper.log_mel_spectrogram(chunk_audio).to(model.device)
-
-        # Detect the spoken language
-        _, probs = model.detect_language(mel)
-        detected_language = max(probs, key=probs.get)
-        print(f"Detected language for chunk {idx + 1}: {detected_language}")
-
-        # Transcribe and translate the audio chunk
-        #TODO: Test out task="transcribe", It wasn't accurate at all
-        #options = whisper.DecodingOptions(language=None, task="transcribe", without_timestamps=True, prompt= "Two languages coming in, code-switching between english and spanish")
-        # The changes are to be made with Large, medium works fine.
-        options = whisper.DecodingOptions(language=None, task="transcribe", without_timestamps=True, prompt = "This conversation include both english and spanish")
-        result = whisper.decode(model, mel, options)
-
+        result = model.transcribe(
+            temp_chunk_path,
+            language=None,  # Allow automatic language detection
+            task="transcribe",
+            initial_prompt="Two languages coming in, code-switching between english and spanish"
+        )
+        print("Transcription for chunk", idx + 1, ":", result["text"])
         # Append the transcription and translation
-        all_transcriptions.append(result.text)
+        all_transcriptions.append(result["text"])
 
     # Combine all transcriptions
-    full_transcription = "\n".join(all_transcriptions)
+    full_transcription = "".join(all_transcriptions)
 
     # Save the full transcription
     whisper_transcript_filename = "whisper_transcript_multilang.txt"
