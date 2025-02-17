@@ -90,11 +90,14 @@ def stop_recording():
     audio = AudioSegment.from_wav(output_filename)
     audio = audio + 20  # Increase volume by 10 dB
     audio.export(output_filename.replace(".wav", "_increased_volume.wav"), format="wav")
+    print(output_filename)
 
     # Transcribe the audio
-    transcribe_audio(output_filename)
+    #transcribe_audio(output_filename)
+    trancription = translation_whisper(output_filename)
 
-    return jsonify({"message": "Recording stopped and saved", "file_path": output_filename})
+    #return jsonify({"message": "Recording stopped and saved", "file_path": output_filename})
+    return jsonify({"transcription": trancription })
 
 def transcribe_audio(file_name):
     print("Transcribing audio...")
@@ -201,11 +204,11 @@ def get_translation_spanish():
         es_transcript = file.read()
     return es_transcript
 
-@app.route('/whisper-translation', methods=['GET'])
-def translation_whisper():
+def translation_whisper(output_filename):
     print("Translating with Whisper...")
     # Ensure the output file path is correct and matches the processed audio file
-    processed_filename = os.path.join(SAVE_DIRECTORY, 'test_output_increased_volume.wav')
+    #processed_filename = os.path.join(SAVE_DIRECTORY, 'test_output_increased_volume.wav')
+    processed_filename = output_filename
 
     # Load the Whisper model
     model = whisper.load_model("large")  # Use 'base' or another model variant as needed
