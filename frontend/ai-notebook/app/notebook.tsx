@@ -9,7 +9,8 @@ import { FileText, Mic, Share, ChevronRight } from "lucide-react"
 import { SettingsDialog } from "../components/settings-dialog"
 import { AddSourceDialog } from "../components/add-source-dialog"
 import { useLanguage } from "../contexts/language-context"
-import type { AudioSource } from "../types/audio"
+import type { AudioSource } from "../types/audio";
+import { fetchLLMResponse } from "@/lib/groqApi"; 
 
 const INITIAL_SOURCES: AudioSource[] = [
   { id: "1", title: "Interview #1", type: "audio", duration: "12:34", path: "/audio1.mp3" },
@@ -33,14 +34,24 @@ const SAMPLE_TRANSCRIPT = {
 }
 
 export default function Notebook() {
-  const [sources, setSources] = useState<AudioSource[]>(INITIAL_SOURCES)
-  const [selectedSource, setSelectedSource] = useState<AudioSource | null>(null)
-  const [query, setQuery] = useState("")
-  const { language } = useLanguage()
+  const [sources, setSources] = useState<AudioSource[]>(INITIAL_SOURCES);
+  const [selectedSource, setSelectedSource] = useState<AudioSource | null>(null);
+  const [query, setQuery] = useState("");
+  const [response, setResponse] = useState<string | null>(null);
+  const { language } = useLanguage();
 
-  const handleAddSource = (newSource: AudioSource) => {
-    setSources((prevSources) => [...prevSources, newSource])
-  }
+  const handleQuerySubmit = async () => {
+    if (!query.trim()) return;
+    
+    setResponse("Processing..."); // Show loading state
+
+    if (language === "en") {
+      const result = await fetchLLMResponse(query);
+      setResponse(result);
+    } else {
+      setResponse("LLM responses are only available in English.");
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -48,7 +59,7 @@ export default function Notebook() {
       <div className="w-80 border-r p-4">
         <div className="flex flex-col h-full">
           <h2 className="text-lg mb-4">Sources</h2>
-          <AddSourceDialog onAddSource={handleAddSource} />
+          <AddSourceDialog onAddSource={(newSource) => setSources([...sources, newSource])} />
           <div className="space-y-2">
             {sources.map((source) => (
               <div
@@ -94,20 +105,31 @@ export default function Notebook() {
               <Card className="p-6">
                 <h3 className="font-semibold mb-4">Summary</h3>
                 <p className="text-muted-foreground mb-4">{SAMPLE_SUMMARY.text[language]}</p>
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Ask about this {selectedSource.type}</h4>
-                  <div className="relative">
-                    <Input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={language === "en" ? "Ask a question..." : "Hacer una pregunta..."}
-                      className="pr-24"
-                    />
-                    <Button size="sm" className="absolute right-2 top-1/2 -translate-y-1/2">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="space-y-4"></div>
+                <h3 className="font-semibold mb-4">Ask about this {selectedSource.type}</h3>
+                <div className="relative">
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={language === "en" ? "Ask a question..." : "Hacer una pregunta..."}
+                    className="pr-24"
+                  />
+                  <Button
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                    onClick={handleQuerySubmit}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
+
+                {/* Display Response */}
+                {response && (
+                  <div className="mt-4 p-4 border rounded bg-gray-100">
+                    <p className="font-semibold">Response:</p>
+                    <p>{response}</p>
+                  </div>
+                )}
               </Card>
             ) : (
               <div className="text-center text-muted-foreground">

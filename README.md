@@ -16,7 +16,8 @@ Clone the repository and install dependencies:
 
 ```sh
 git clone https://github.com/B-a-1-a/MLLMTool
-cd notebookui
+cd frontend
+cd ai-notebook
 npm install
 ```
 
