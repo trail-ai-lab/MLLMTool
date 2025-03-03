@@ -8,10 +8,18 @@ import sys
 import threading
 from pydub import AudioSegment
 import whisper
+from groq import Groq
+from dotenv import load_dotenv
 
 
 # Set Google Cloud credentials
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "mllm-transcription-translation-6c6539ea3f3c.json"
+
+load_dotenv()
+
+client = Groq(
+    api_key=os.getenv("GROQ_API_KEY"),
+)
 
 app = Flask(__name__)
 CORS(app)
@@ -86,15 +94,18 @@ def stop_recording():
     print("Recording stopped and saved.")
 
     # Increase audio volume
-    print("Increasing audio volume")
-    audio = AudioSegment.from_wav(output_filename)
-    audio = audio + 20  # Increase volume by 10 dB
-    audio.export(output_filename.replace(".wav", "_increased_volume.wav"), format="wav")
-    print(output_filename)
+    #print("Increasing audio volume")
+    #audio = AudioSegment.from_wav(output_filename)
+    #audio = audio + 20  # Increase volume by 10 dB
+    #audio.export(output_filename.replace(".wav", "_increased_volume.wav"), format="wav")
+    #print(output_filename)
 
     # Transcribe the audio
     #transcribe_audio(output_filename)
-    trancription = translation_whisper(output_filename)
+    trancription = transcribe_groq(output_filename)
+    #if trancription is empty
+    if not trancription:
+        trancription = translation_whisper(output_filename)
 
     #return jsonify({"message": "Recording stopped and saved", "file_path": output_filename})
     return jsonify({"transcription": trancription })
@@ -203,6 +214,24 @@ def get_translation_spanish():
     with open(es_file_path, 'r') as file:
         es_transcript = file.read()
     return es_transcript
+
+def transcribe_groq(filename):
+    print("Transcribing with Groq...")
+    with open(filename, "rb") as file:
+        # Create a transcription of the audio file
+        transcription = client.audio.transcriptions.create(
+        file=(filename, file.read()), # Required audio file
+        model="whisper-large-v3-turbo", # Required model to use for transcription
+        #prompt="Two languages coming in, code-switching between english and spanish, return it in both spanish and english",
+        prompt="Two languages coming in, code-switching between english and spanish, transcribe the audio as is, returning spanish when they are speaking spanish and english when they are speaking english",
+        response_format="json",  # Optional
+        #language="None" - didn't work
+        )
+        # Print the transcription text
+        print(transcription.text)
+
+        return transcription.text
+        
 
 def translation_whisper(output_filename):
     print("Translating with Whisper...")
