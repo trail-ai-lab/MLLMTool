@@ -12,6 +12,9 @@ import { useLanguage } from "../contexts/language-context"
 import type { AudioSource } from "../types/audio";
 import { fetchLLMResponse } from "@/lib/groqApi"; 
 import { RecordSourceDialog } from "@/components/record-source-dialog"
+import { transcribeAudio } from "@/lib/transcribe"; // Import the transcription function
+import { summarizeTranscript } from "@/lib/summarize"; // Import summarization
+
 
 const INITIAL_SOURCES: AudioSource[] = [
   { id: "1", title: "Interview #1", type: "audio", duration: "12:34", path: "/audio1.mp3" },
@@ -28,21 +31,39 @@ export default function Notebook() {
   const [response, setResponse] = useState<string | null>(null);
   const { language } = useLanguage();
 
-  // Dummy API call to fetch transcript and summary (Simulated delay)
+
+
   const fetchTranscriptAndSummary = async (source: AudioSource) => {
     setTranscript("Fetching transcript...");
     setSummary("Generating summary...");
 
-    setTimeout(() => {
-      if (source.id === "1") {
-        setTranscript("[Speaker 1]: Welcome to the interview.\n[Speaker 2]: Thank you for having me.");
-        setSummary("This is an interview about recent advancements in artificial intelligence.");
-      } else {
-        setTranscript("[Speaker 1]: This meeting discusses project updates.\n[Speaker 2]: Let's review the progress.");
-        setSummary("This meeting covers progress updates on the latest project developments.");
-      }
-    }, 1500);
-  };
+    try {
+        // Convert Blob URL to File
+        let audioFile: File | null = null;
+        if (source.path.startsWith("blob:")) {
+            const response = await fetch(source.path);
+            const blob = await response.blob();
+            audioFile = new File([blob], "audio.wav", { type: "audio/wav" });
+        }
+
+        if (audioFile) {
+            const transcribedText = await transcribeAudio(audioFile);
+            setTranscript(transcribedText);
+
+            // Generate summary from the transcribed text
+            const summaryText = await summarizeTranscript(transcribedText);
+            setSummary(summaryText);
+        } else {
+            setTranscript("Failed to load audio file for transcription.");
+            setSummary("Could not generate summary.");
+        }
+    } catch (error) {
+        setTranscript("Error transcribing audio.");
+        setSummary("Error generating summary.");
+        console.error(error);
+    }
+};
+  
 
   // Handle source selection
   useEffect(() => {
