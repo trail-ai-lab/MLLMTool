@@ -8,12 +8,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { FileText, Mic, Share, ChevronRight, Upload } from "lucide-react"
 import { SettingsDialog } from "../components/settings-dialog"
 import { useLanguage } from "../contexts/language-context"
-import type { AudioSource } from "../types/audio";
-// import { fetchLLMResponse } from "@/lib/groqApi"; // We're replacing this with our backend API
+import type { AudioSource } from "../types/audio"
+import { fetchLLMResponse } from "@/lib/groqApi"
 import { RecordSourceDialog } from "@/components/record-source-dialog"
-import { transcribeAudio } from "@/lib/transcribe"; 
-import { summarizeTranscript } from "@/lib/summarize"; 
-import CustomPDFViewer from "@/components/CustomPDFViewer"; 
+import { transcribeAudio } from "@/lib/transcribe"
+import { summarizeTranscript } from "@/lib/summarize"
+import CustomPDFViewer from "@/components/CustomPDFViewer"
 import {
   Dialog,
   DialogContent,
@@ -22,8 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
 // Define interfaces for API response
 interface Highlight {
@@ -189,31 +189,52 @@ const Notebook = () => {
         return;
       }
       
-      // Call the backend API
-      const apiResponse = await queryBackend(query, context);
+      // Call Groq LLM API with context (independent of backend API)
+      const llmPromise = fetchLLMResponse(`Question: ${query}\n\nContext from ${selectedSource.type}: ${context.substring(0, 2000)}...`);
       
-      // Display the answer
-      setResponse(apiResponse.answer);
+      let fullResponse = "";
+      let apiResponse = null;
       
-      // Store highlights for potential visualization
-      if (apiResponse.highlights && apiResponse.highlights.length > 0) {
-        setHighlights(apiResponse.highlights);
+      // Try to get the backend API response, but continue even if it fails
+      try {
+        apiResponse = await queryBackend(query, context);
+        fullResponse = apiResponse.answer;
         
-        // Only add highlights to response if they're different from the main answer
-        if (apiResponse.merged_highlights && apiResponse.merged_highlights.length > 0) {
-          // Filter out any highlights that are identical to the main answer
-          const uniqueHighlights = apiResponse.merged_highlights.filter(h => 
-            h.text.trim() !== apiResponse.answer.trim()
-          );
+        // Store highlights for potential visualization
+        if (apiResponse.highlights && apiResponse.highlights.length > 0) {
+          setHighlights(apiResponse.highlights);
           
-          if (uniqueHighlights.length > 0) {
-            const highlightTexts = uniqueHighlights.map(h => 
-              `· ${h.text} (confidence: ${Math.min((h.avg_score * 100), 99).toFixed(0)}%)`
+          // Only add highlights to response if they're different from the main answer
+          if (apiResponse.merged_highlights && apiResponse.merged_highlights.length > 0) {
+            // Filter out any highlights that are identical to the main answer
+            const uniqueHighlights = apiResponse.merged_highlights.filter(h => 
+              h.text.trim() !== apiResponse.answer.trim()
             );
-            setResponse(prev => `${prev}\n\nRelevant passages:\n${highlightTexts.join('\n\n')}`);
+            
+            if (uniqueHighlights.length > 0) {
+              const highlightTexts = uniqueHighlights.map(h => 
+                `· ${h.text} (confidence: ${Math.min((h.avg_score * 100), 99).toFixed(0)}%)`
+              );
+              fullResponse += `\n\nRelevant passages:\n${highlightTexts.join('\n\n')}`;
+            }
           }
         }
+      } catch (backendError) {
+        console.error('Backend API error:', backendError);
+        fullResponse = "Error retrieving information from the backend API. ";
       }
+      
+      // Wait for LLM response and add it to the full response
+      try {
+        const llmResponse = await llmPromise;
+        // Add the LLM response as a separate section
+        fullResponse += `\n\nChatbot Response:\n${llmResponse}`;
+      } catch (llmError) {
+        console.error('LLM API error:', llmError);
+        fullResponse += `\n\nChatbot Response:\nUnable to retrieve response from the language model.`;
+      }
+      
+      setResponse(fullResponse);
     } catch (error) {
       console.error('Query submission error:', error);
       setResponse(`An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -285,7 +306,7 @@ const Notebook = () => {
       <div className="w-80 border-r p-4">
         <div className="flex flex-col h-full">
           <h2 className="text-lg mb-4">Sources</h2>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col gap-2 mb-4">
             <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
@@ -448,8 +469,8 @@ const Notebook = () => {
                 {/* Display Response */}
                 {response && (
                   <div className="mt-4 p-4 border rounded bg-gray-100 whitespace-pre-line">
-                    <p className="font-semibold text-black">Response:</p>
-                    <p className="text-black">{response}</p>
+                    <p className="font-semibold">Response:</p>
+                    <p>{response}</p>
                   </div>
                 )}
               </Card>
@@ -465,12 +486,12 @@ const Notebook = () => {
       </div>
 
       {/* Right Sidebar - Transcript or PDF Viewer */}
-      <div className="w-[800px] border-l p-4">
+      <div className="w-96 border-l p-4">
         <div className="flex flex-col h-full">
           <h2 className="text-lg mb-4">
             {language === "en" ? "Transcript" : "Transcripción"}
           </h2>
-          <div className="flex-1 h-[calc(100vh-180px)]">
+          <div className="flex-1">
             {selectedSource ? (
               <>
                 {selectedSource.type === "audio" ? (
