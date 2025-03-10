@@ -88,6 +88,15 @@ const INITIAL_SOURCES: Source[] = [
   { id: "2", title: "Meeting Notes", type: "audio", duration: "05:20", path: "/audio2.mp3" },
 ];
 
+// Interface to store cached data for each source
+interface SourceCache {
+  [sourceId: string]: {
+    transcript?: string;
+    summary?: string;
+    textContent?: string;
+  }
+}
+
 const Notebook = () => {
   const [sources, setSources] = useState<Source[]>(INITIAL_SOURCES);
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
@@ -103,14 +112,90 @@ const Notebook = () => {
   const [textContent, setTextContent] = useState<string>("");
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processedSources, setProcessedSources] = useState<Set<string>>(new Set());
+  const [sourceCache, setSourceCache] = useState<SourceCache>({});
 
-  // Add a function to get text content from PDF viewer
+  // Add a function to get text content from PDF viewer and cache it
   const setPDFTextContent = (content: string) => {
+    if (!selectedSource) return;
+    
     setTextContent(content);
+    
+    // Update cache with the new text content
+    setSourceCache(prev => ({
+      ...prev,
+      [selectedSource.id]: {
+        ...prev[selectedSource.id],
+        textContent: content
+      }
+    }));
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem(`source_textContent_${selectedSource.id}`, content);
+    } catch (error) {
+      console.warn('Could not save PDF text content to localStorage:', error);
+    }
   };
+
+  // Load cache from localStorage on component mount
+  useEffect(() => {
+    try {
+      // Load processed sources from localStorage
+      const savedProcessedSources = localStorage.getItem('processedSources');
+      if (savedProcessedSources) {
+        setProcessedSources(new Set(JSON.parse(savedProcessedSources)));
+      }
+      
+      // Load source cache data
+      const tempCache: SourceCache = {};
+      
+      // Scan all localStorage items for our cache keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        
+        if (key.startsWith('source_transcript_')) {
+          const sourceId = key.replace('source_transcript_', '');
+          tempCache[sourceId] = tempCache[sourceId] || {};
+          tempCache[sourceId].transcript = localStorage.getItem(key) || undefined;
+        } else if (key.startsWith('source_summary_')) {
+          const sourceId = key.replace('source_summary_', '');
+          tempCache[sourceId] = tempCache[sourceId] || {};
+          tempCache[sourceId].summary = localStorage.getItem(key) || undefined;
+        } else if (key.startsWith('source_textContent_')) {
+          const sourceId = key.replace('source_textContent_', '');
+          tempCache[sourceId] = tempCache[sourceId] || {};
+          tempCache[sourceId].textContent = localStorage.getItem(key) || undefined;
+        }
+      }
+      
+      setSourceCache(tempCache);
+    } catch (error) {
+      console.warn('Error loading cache from localStorage:', error);
+    }
+  }, []);
 
   const fetchTranscriptAndSummary = async (source: Source) => {
     if (source.type !== "audio") return;
+    
+    // Check if we've already processed this source
+    if (processedSources.has(source.id)) {
+      // Use cached data if available
+      if (sourceCache[source.id]?.transcript) {
+        setTranscript(sourceCache[source.id].transcript || null);
+      } else {
+        setTranscript("Transcript unavailable.");
+      }
+      
+      if (sourceCache[source.id]?.summary) {
+        setSummary(sourceCache[source.id].summary || null);
+      } else {
+        setSummary("Summary unavailable.");
+      }
+      
+      return;
+    }
     
     setTranscript("Fetching transcript...");
     setSummary("Generating summary...");
@@ -127,13 +212,57 @@ const Notebook = () => {
         if (audioFile) {
             const transcribedText = await transcribeAudio(audioFile);
             setTranscript(transcribedText);
+            
+            // Cache the transcript
+            setSourceCache(prev => ({
+              ...prev,
+              [source.id]: {
+                ...prev[source.id],
+                transcript: transcribedText
+              }
+            }));
+            
+            // Save to localStorage
+            try {
+              localStorage.setItem(`source_transcript_${source.id}`, transcribedText);
+            } catch (error) {
+              console.warn('Could not save transcript to localStorage:', error);
+            }
 
             // Generate summary from the transcribed text
             const summaryText = await summarizeTranscript(transcribedText);
             setSummary(summaryText);
+            
+            // Cache the summary
+            setSourceCache(prev => ({
+              ...prev,
+              [source.id]: {
+                ...prev[source.id],
+                summary: summaryText
+              }
+            }));
+            
+            // Save to localStorage
+            try {
+              localStorage.setItem(`source_summary_${source.id}`, summaryText);
+            } catch (error) {
+              console.warn('Could not save summary to localStorage:', error);
+            }
         } else {
             setTranscript("Failed to load audio file for transcription.");
             setSummary("Could not generate summary.");
+        }
+        
+        // Mark this source as processed
+        const newProcessedSources = new Set(processedSources);
+        newProcessedSources.add(source.id);
+        setProcessedSources(newProcessedSources);
+        
+        // Save processed sources to localStorage
+        try {
+          localStorage.setItem('processedSources', JSON.stringify([...newProcessedSources]));
+        } catch (error) {
+          console.warn('Could not save processed sources to localStorage:', error);
         }
     } catch (error) {
         setTranscript("Error transcribing audio.");
@@ -151,14 +280,39 @@ const Notebook = () => {
     
     if (selectedSource.type === "audio") {
       setAudioPlayer(new Audio(selectedSource.path));
-      fetchTranscriptAndSummary(selectedSource);
+      
+      // Check if we have cached data for this source
+      if (sourceCache[selectedSource.id]) {
+        const cachedData = sourceCache[selectedSource.id];
+        
+        if (cachedData.transcript) {
+          setTranscript(cachedData.transcript);
+        } else {
+          // Only fetch if no cache exists
+          fetchTranscriptAndSummary(selectedSource);
+        }
+        
+        if (cachedData.summary) {
+          setSummary(cachedData.summary);
+        }
+      } else {
+        // No cache exists, fetch the data
+        fetchTranscriptAndSummary(selectedSource);
+      }
     } else if (selectedSource.type === "pdf") {
       // Clear audio-specific states when PDF is selected
       setAudioPlayer(null);
       setTranscript(null);
       setSummary(null);
+      
+      // Check for cached PDF text content
+      if (sourceCache[selectedSource.id]?.textContent) {
+        setTextContent(sourceCache[selectedSource.id].textContent || "");
+      } else {
+        setTextContent("");
+      }
     }
-  }, [selectedSource]);
+  }, [selectedSource, sourceCache, processedSources]);
 
   const handleQuerySubmit = async () => {
     if (!query.trim() || !selectedSource) return;
