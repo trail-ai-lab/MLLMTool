@@ -1,0 +1,17 @@
+
+
+#privatekeyfile
+*.json
+
+#txtfiles
+*.txt
+!requirements.txt
+
+#saved-audio-files
+saved_audio_files/
+
+#pythonenviornment
+venv/
+
+#pychache
+__pycache__/

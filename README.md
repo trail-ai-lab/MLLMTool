@@ -63,11 +63,11 @@ http://localhost:3000
 ```
 
 ## **🛠 Troubleshooting**
-1. **Module Not Found Errors**  
+1. **Module Not Found Errors**
    - Run `npm install` to ensure all dependencies are installed.
    - If a Shadcn component is missing, install it using `npx shadcn@latest add <component-name>`.
 
-2. **TailwindCSS Not Working**  
+2. **TailwindCSS Not Working**
    - Ensure `globals.css` includes:
      ```css
      @tailwind base;
@@ -76,6 +76,64 @@ http://localhost:3000
      ```
    - Restart your Next.js server with `npm run dev`.
 
+---
+
+# Backend
+
+This guide outlines the steps required to set up and run the backend.
+
+## Prerequisites
+
+* **python 3.9:**  Ensure you have python 3.9 installed.
+
+    * **macos:** Use homebrew: `brew install python@3.9`
+    * **windows:** Download the installer from [python.org](https://www.python.org/downloads/windows/) and follow the instructions.  make sure to add python to your path environment variable during installation.  (you may need to search for instructions on how to do this for your version of windows.)
+
+## Setup
+
+1. **Create a virtual environment:** This isolates project dependencies.
+
+    ```sh
+    python3.9 -m venv venv
+    ```
+
+2. **Activate the virtual environment:**
+
+    * **macos/linux:**
+      ```sh
+      source venv/bin/activate
+      ```
+    * **windows (command prompt):**
+      ```sh
+      venv\scripts\activate
+      ```
+    * **windows (powershell):**
+      ```powershell
+      venv\scripts\activate.ps1
+      ```
+
+3. **Install dependencies:** Install the required python packages.
+
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+4. **Obtain `mllm-transcription-translation`:**  The `mllm-transcription-translation` file is required for the backend to function. please retrieve it from slack and place it in the `backend` folder.
+
+## Running the backend
+
+1. **Start the flask server:**
+
+    ```sh
+    flask --app transcription.py run
+    ```
+
+    *(optional)  If you need to specify a port or other flask options:*
+
+    ```sh
+    flask --app transcription.py run --port 5000  # example: run on port 5000
+    flask --app transcription.py run --host 0.0.0.0 # example: make server accessible from other machines on the network
+    ```
 ---
 
 ## **💡 Contributing**
