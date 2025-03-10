@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"components\\\\CustomPDFViewer.tsx -> pdfjs-dist/webpack\":{\"id\":\"components\\\\CustomPDFViewer.tsx -> pdfjs-dist/webpack\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_pdfjs-dist_webpack_mjs.js\"]}}"
