@@ -1,19 +1,21 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { FileText, Mic, Share, ChevronRight, Upload } from "lucide-react"
-import { SettingsDialog } from "../components/settings-dialog"
-import { useLanguage } from "../contexts/language-context"
-import type { AudioSource } from "../types/audio"
-import { fetchLLMResponse } from "@/lib/groqApi"
-import { RecordSourceDialog } from "@/components/record-source-dialog"
-import { transcribeAudio } from "@/lib/transcribe"
-import { summarizeTranscript } from "@/lib/summarize"
-import CustomPDFViewer from "@/components/CustomPDFViewer"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { supabase } from "@/lib/supabaseClient";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { FileText, Mic, Share, ChevronRight, Upload } from "lucide-react";
+import { SettingsDialog } from "../components/settings-dialog";
+import { useLanguage } from "../contexts/language-context";
+import type { AudioSource } from "../types/audio";
+import { fetchLLMResponse } from "@/lib/groqApi";
+import { RecordSourceDialog } from "@/components/record-source-dialog";
+import { transcribeAudio } from "@/lib/transcribe";
+import { summarizeTranscript } from "@/lib/summarize";
+import CustomPDFViewer from "@/components/CustomPDFViewer";
+
 import {
   Dialog,
   DialogContent,
@@ -22,8 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 // Define interfaces for API response
 interface Highlight {
@@ -181,7 +183,6 @@ const Notebook = () => {
     
     // Check if we've already processed this source
     if (processedSources.has(source.id)) {
-      // Use cached data if available
       if (sourceCache[source.id]?.transcript) {
         setTranscript(sourceCache[source.id].transcript || null);
       } else {
@@ -193,7 +194,6 @@ const Notebook = () => {
       } else {
         setSummary("Summary unavailable.");
       }
-      
       return;
     }
     
@@ -201,73 +201,64 @@ const Notebook = () => {
     setSummary("Generating summary...");
 
     try {
-        // Convert Blob URL to File
-        let audioFile: File | null = null;
-        if (source.path.startsWith("blob:")) {
-            const response = await fetch(source.path);
-            const blob = await response.blob();
-            audioFile = new File([blob], "audio.wav", { type: "audio/wav" });
-        }
-
-        if (audioFile) {
-            const transcribedText = await transcribeAudio(audioFile);
-            setTranscript(transcribedText);
-            
-            // Cache the transcript
-            setSourceCache(prev => ({
-              ...prev,
-              [source.id]: {
-                ...prev[source.id],
-                transcript: transcribedText
-              }
-            }));
-            
-            // Save to localStorage
-            try {
-              localStorage.setItem(`source_transcript_${source.id}`, transcribedText);
-            } catch (error) {
-              console.warn('Could not save transcript to localStorage:', error);
-            }
-
-            // Generate summary from the transcribed text
-            const summaryText = await summarizeTranscript(transcribedText);
-            setSummary(summaryText);
-            
-            // Cache the summary
-            setSourceCache(prev => ({
-              ...prev,
-              [source.id]: {
-                ...prev[source.id],
-                summary: summaryText
-              }
-            }));
-            
-            // Save to localStorage
-            try {
-              localStorage.setItem(`source_summary_${source.id}`, summaryText);
-            } catch (error) {
-              console.warn('Could not save summary to localStorage:', error);
-            }
-        } else {
-            setTranscript("Failed to load audio file for transcription.");
-            setSummary("Could not generate summary.");
-        }
+      // Always fetch the file from the URL, whether it's a blob URL or a public URL
+      let audioFile: File | null = null;
+      const response = await fetch(source.path);
+      const blob = await response.blob();
+      audioFile = new File([blob], "audio.wav", { type: blob.type || "audio/wav" });
+      
+      if (audioFile) {
+        const transcribedText = await transcribeAudio(audioFile);
+        setTranscript(transcribedText);
         
-        // Mark this source as processed
-        const newProcessedSources = new Set(processedSources);
-        newProcessedSources.add(source.id);
-        setProcessedSources(newProcessedSources);
+        setSourceCache(prev => ({
+          ...prev,
+          [source.id]: {
+            ...prev[source.id],
+            transcript: transcribedText
+          }
+        }));
         
-        // Save processed sources to localStorage
         try {
-          localStorage.setItem('processedSources', JSON.stringify([...newProcessedSources]));
+          localStorage.setItem(`source_transcript_${source.id}`, transcribedText);
         } catch (error) {
-          console.warn('Could not save processed sources to localStorage:', error);
+          console.warn('Could not save transcript to localStorage:', error);
         }
+
+        const summaryText = await summarizeTranscript(transcribedText);
+        setSummary(summaryText);
+        
+        setSourceCache(prev => ({
+          ...prev,
+          [source.id]: {
+            ...prev[source.id],
+            summary: summaryText
+          }
+        }));
+        
+        try {
+          localStorage.setItem(`source_summary_${source.id}`, summaryText);
+        } catch (error) {
+          console.warn('Could not save summary to localStorage:', error);
+        }
+      } else {
+        setTranscript("Failed to load audio file for transcription.");
+        setSummary("Could not generate summary.");
+      }
+      
+      const newProcessedSources = new Set(processedSources);
+      newProcessedSources.add(source.id);
+      setProcessedSources(newProcessedSources);
+      
+      try {
+        localStorage.setItem('processedSources', JSON.stringify([...newProcessedSources]));
+      } catch (error) {
+        console.warn('Could not save processed sources to localStorage:', error);
+      }
     } catch (error) {
-        setTranscript("Error transcribing audio.");
-        setSummary("Error generating summary.");
-        console.error(error);
+      setTranscript("Error transcribing audio.");
+      setSummary("Error generating summary.");
+      console.error(error);
     }
   };
   
@@ -275,20 +266,17 @@ const Notebook = () => {
   useEffect(() => {
     if (!selectedSource) return;
     
-    // Reset highlights when changing sources
     setHighlights([]);
     
     if (selectedSource.type === "audio") {
       setAudioPlayer(new Audio(selectedSource.path));
       
-      // Check if we have cached data for this source
       if (sourceCache[selectedSource.id]) {
         const cachedData = sourceCache[selectedSource.id];
         
         if (cachedData.transcript) {
           setTranscript(cachedData.transcript);
         } else {
-          // Only fetch if no cache exists
           fetchTranscriptAndSummary(selectedSource);
         }
         
@@ -296,16 +284,13 @@ const Notebook = () => {
           setSummary(cachedData.summary);
         }
       } else {
-        // No cache exists, fetch the data
         fetchTranscriptAndSummary(selectedSource);
       }
     } else if (selectedSource.type === "pdf") {
-      // Clear audio-specific states when PDF is selected
       setAudioPlayer(null);
       setTranscript(null);
       setSummary(null);
       
-      // Check for cached PDF text content
       if (sourceCache[selectedSource.id]?.textContent) {
         setTextContent(sourceCache[selectedSource.id].textContent || "");
       } else {
@@ -322,14 +307,12 @@ const Notebook = () => {
     setHighlights([]);
     
     try {
-      // Check language
       if (language !== "en") {
         setResponse("Queries are only available in English at this time.");
         setIsProcessing(false);
         return;
       }
       
-      // Get context based on source type
       let context = "";
       if (selectedSource.type === "audio") {
         context = transcript || "";
@@ -343,24 +326,19 @@ const Notebook = () => {
         return;
       }
       
-      // Call Groq LLM API with context (independent of backend API)
       const llmPromise = fetchLLMResponse(`Question: ${query}\n\nContext from ${selectedSource.type}: ${context.substring(0, 2000)}...`);
       
       let fullResponse = "";
       let apiResponse = null;
       
-      // Try to get the backend API response, but continue even if it fails
       try {
         apiResponse = await queryBackend(query, context);
         fullResponse = apiResponse.answer;
         
-        // Store highlights for potential visualization
         if (apiResponse.highlights && apiResponse.highlights.length > 0) {
           setHighlights(apiResponse.highlights);
           
-          // Only add highlights to response if they're different from the main answer
           if (apiResponse.merged_highlights && apiResponse.merged_highlights.length > 0) {
-            // Filter out any highlights that are identical to the main answer
             const uniqueHighlights = apiResponse.merged_highlights.filter(h => 
               h.text.trim() !== apiResponse.answer.trim()
             );
@@ -378,10 +356,8 @@ const Notebook = () => {
         fullResponse = "Error retrieving information from the backend API. ";
       }
       
-      // Wait for LLM response and add it to the full response
       try {
         const llmResponse = await llmPromise;
-        // Add the LLM response as a separate section
         fullResponse += `\n\nChatbot Response:\n${llmResponse}`;
       } catch (llmError) {
         console.error('LLM API error:', llmError);
@@ -404,7 +380,6 @@ const Notebook = () => {
     const file = files[0];
     setUploadFile(file);
     
-    // Auto-generate title from filename if no title entered
     if (!uploadTitle) {
       setUploadTitle(file.name.split('.').slice(0, -1).join('.'));
     }
@@ -414,10 +389,7 @@ const Notebook = () => {
     if (!uploadFile || !uploadTitle.trim()) return;
 
     try {
-      // Create a blob URL for the file
       const url = URL.createObjectURL(uploadFile);
-      
-      // Determine the file type
       const isPdf = uploadFile.type === 'application/pdf' || 
                    uploadFile.name.toLowerCase().endsWith('.pdf');
       
@@ -433,7 +405,6 @@ const Notebook = () => {
       setSources(prev => [...prev, newSource]);
       setSelectedSource(newSource);
       
-      // Reset the upload form
       setUploadTitle("");
       setUploadFile(null);
       setIsUploadDialogOpen(false);
@@ -442,7 +413,6 @@ const Notebook = () => {
     }
   };
 
-  // Clean up blob URLs when component unmounts
   useEffect(() => {
     return () => {
       sources.forEach(source => {
