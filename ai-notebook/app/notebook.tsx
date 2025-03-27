@@ -46,10 +46,13 @@ interface QueryResponse {
   merged_highlights: MergedHighlight[];
 }
 
+// API URL with fallback
+const API_URL = process.env.NEXT_PUBLIC_BACKENDURL;
+
 // Helper function to query the backend API
 async function queryBackend(question: string, context: string): Promise<QueryResponse> {
   try {
-    const response = await fetch('http://localhost:8000/api/query', {
+    const response = await fetch(`${API_URL}/api/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +61,9 @@ async function queryBackend(question: string, context: string): Promise<QueryRes
         question,
         context,
         threshold: 0.7,
-        max_highlight_sentences: 3 // Allow up to 3 sentences to be highlighted
+        max_highlight_sentences: 3, // Allow up to 3 sentences to be highlighted
+        chunk_size: 4,
+        chunk_overlap: 2
       })
     });
     
@@ -313,6 +318,23 @@ const Notebook = () => {
       }
     }
   }, [selectedSource, sourceCache, processedSources]);
+
+  // Helper function to render transcript with highlights
+  const renderWithHighlights = (text: string | null) => {
+    if (!text || !highlights.length) return text;
+    
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    return sentences.map((sentence, index) => {
+      const isHighlighted = highlights.some(h => h.index === index);
+      return isHighlighted ? (
+        <mark key={index} className="bg-yellow-100 px-1 rounded">
+          {sentence}
+        </mark>
+      ) : (
+        <span key={index}>{sentence} </span>
+      );
+    });
+  };
 
   const handleQuerySubmit = async () => {
     if (!query.trim() || !selectedSource) return;
@@ -651,7 +673,7 @@ const Notebook = () => {
                 {selectedSource.type === "audio" ? (
                   <ScrollArea className="h-full">
                     <div className="space-y-4 whitespace-pre-wrap text-muted-foreground">
-                      {transcript || "Fetching transcript..."}
+                      {renderWithHighlights(transcript || "Fetching transcript...")}
                     </div>
                   </ScrollArea>
                 ) : selectedSource.type === "pdf" ? (
