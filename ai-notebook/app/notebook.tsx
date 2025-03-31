@@ -15,6 +15,7 @@ import { RecordSourceDialog } from "@/components/record-source-dialog";
 import { transcribeAudio } from "@/lib/transcribe";
 import { summarizeTranscript } from "@/lib/summarize";
 import CustomPDFViewer from "@/components/CustomPDFViewer";
+import { saveSource, saveSourceData, getSourceData } from "@/lib/supabaseClient";
 
 import {
   Dialog,
@@ -90,10 +91,7 @@ interface Source {
   file?: File;
 }
 
-const INITIAL_SOURCES: Source[] = [
-  { id: "1", title: "Interview #1", type: "audio", duration: "12:34", path: "/audio1.mp3" },
-  { id: "2", title: "Meeting Notes", type: "audio", duration: "05:20", path: "/audio2.mp3" },
-];
+const INITIAL_SOURCES: Source[] = [];
 
 // Interface to store cached data for each source
 interface SourceCache {
@@ -104,8 +102,13 @@ interface SourceCache {
   }
 }
 
-const Notebook = () => {
-  const [sources, setSources] = useState<Source[]>(INITIAL_SOURCES);
+interface NotebookProps {
+  initialSources?: Source[];
+  isLoadingSources?: boolean;
+}
+
+const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }: NotebookProps) => {
+  const [sources, setSources] = useState<Source[]>(initialSources);
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
   const [transcript, setTranscript] = useState<string | null>(null);
@@ -121,6 +124,17 @@ const Notebook = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedSources, setProcessedSources] = useState<Set<string>>(new Set());
   const [sourceCache, setSourceCache] = useState<SourceCache>({});
+
+  // Update sources when initialSources change (user's sources from database)
+  useEffect(() => {
+    if (initialSources && initialSources.length > 0) {
+      setSources(initialSources);
+      // Select the first source if none is selected
+      if (!selectedSource && initialSources.length > 0) {
+        setSelectedSource(initialSources[0]);
+      }
+    }
+  }, [initialSources, selectedSource]);
 
   // Add a function to get text content from PDF viewer and cache it
   const setPDFTextContent = (content: string) => {
@@ -183,25 +197,102 @@ const Notebook = () => {
     }
   }, []);
 
+  // Function to save source data to Supabase
+  const saveSourceDataToSupabase = async (sourceId: string, data: { 
+    transcript?: string; 
+    summary?: string; 
+    textContent?: string; 
+  }) => {
+    try {
+      await saveSourceData(sourceId, data);
+    } catch (error) {
+      console.error("Error saving source data to Supabase:", error);
+    }
+  };
+  
+  // When transcription and summary are generated, save them to Supabase
+  useEffect(() => {
+    if (selectedSource && transcript && summary) {
+      saveSourceDataToSupabase(selectedSource.id, {
+        transcript,
+        summary
+      });
+    }
+  }, [selectedSource, transcript, summary]);
+  
+  // When PDF text content is processed, save it to Supabase
+  useEffect(() => {
+    if (selectedSource?.type === 'pdf' && textContent && textContent.length > 0) {
+      saveSourceDataToSupabase(selectedSource.id, {
+        textContent
+      });
+    }
+  }, [selectedSource, textContent]);
+
+  // Load source data when source is selected
+  const loadSourceData = async (source: Source) => {
+    try {
+      const data = await getSourceData(source.id);
+      
+      if (data) {
+        if (data.transcript) {
+          setTranscript(data.transcript);
+          
+          setSourceCache(prev => ({
+            ...prev,
+            [source.id]: {
+              ...prev[source.id],
+              transcript: data.transcript
+            }
+          }));
+        }
+        
+        if (data.summary) {
+          setSummary(data.summary);
+          
+          setSourceCache(prev => ({
+            ...prev,
+            [source.id]: {
+              ...prev[source.id],
+              summary: data.summary
+            }
+          }));
+        }
+        
+        if (data.text_content) {
+          setTextContent(data.text_content);
+          
+          setSourceCache(prev => ({
+            ...prev,
+            [source.id]: {
+              ...prev[source.id],
+              textContent: data.text_content
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error loading source data:", error);
+    }
+  };
+
+  // Modify the existing fetchTranscriptAndSummary function
   const fetchTranscriptAndSummary = async (source: Source) => {
     if (source.type !== "audio") return;
     
-    // Check if we've already processed this source
-    if (processedSources.has(source.id)) {
-      if (sourceCache[source.id]?.transcript) {
-        setTranscript(sourceCache[source.id].transcript || null);
-      } else {
-        setTranscript("Transcript unavailable.");
-      }
-      
+    // First try to load from Supabase
+    await loadSourceData(source);
+    
+    // If we have data in the cache, use it
+    if (sourceCache[source.id]?.transcript) {
+      setTranscript(sourceCache[source.id].transcript || null);
       if (sourceCache[source.id]?.summary) {
         setSummary(sourceCache[source.id].summary || null);
-      } else {
-        setSummary("Summary unavailable.");
       }
       return;
     }
     
+    // Otherwise, proceed with transcription as before
     setTranscript("Fetching transcript...");
     setSummary("Generating summary...");
 
@@ -245,6 +336,14 @@ const Notebook = () => {
           localStorage.setItem(`source_summary_${source.id}`, summaryText);
         } catch (error) {
           console.warn('Could not save summary to localStorage:', error);
+        }
+
+        // Add the saving to Supabase after processing
+        if (transcribedText && summaryText) {
+          await saveSourceDataToSupabase(source.id, {
+            transcript: transcribedText,
+            summary: summaryText
+          });
         }
       } else {
         setTranscript("Failed to load audio file for transcription.");
@@ -351,10 +450,9 @@ const Notebook = () => {
       const llmPromise = fetchLLMResponse(`Question: ${query}\n\nContext from ${selectedSource.type}: ${context.substring(0, 2000)}...`);
       
       let fullResponse = "";
-      let apiResponse = null;
+      let apiResponse: QueryResponse = await queryBackend(query, context);
       
       try {
-        apiResponse = await queryBackend(query, context);
         fullResponse = apiResponse.answer;
         
         if (apiResponse.highlights && apiResponse.highlights.length > 0) {
@@ -407,31 +505,60 @@ const Notebook = () => {
     }
   };
 
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (!uploadFile || !uploadTitle.trim()) return;
 
     try {
-      const url = URL.createObjectURL(uploadFile);
       const isPdf = uploadFile.type === 'application/pdf' || 
                    uploadFile.name.toLowerCase().endsWith('.pdf');
       
+      // Create a new source object
       const newSource: Source = {
-        id: `uploaded-${Date.now()}`,
+        id: `temp-${Date.now()}`, // Temporary ID until we get the real one from Supabase
         title: uploadTitle,
         type: isPdf ? 'pdf' : 'audio',
-        path: url,
+        path: "", // Will be set by Supabase
         file: uploadFile,
         duration: !isPdf ? '00:00' : undefined
       };
 
-      setSources(prev => [...prev, newSource]);
-      setSelectedSource(newSource);
+      // Save the source to Supabase
+      const savedSource = await saveSource(newSource, uploadFile);
+      
+      // Update local state with the saved source
+      setSources(prev => [...prev, savedSource]);
+      setSelectedSource(savedSource);
       
       setUploadTitle("");
       setUploadFile(null);
       setIsUploadDialogOpen(false);
     } catch (err) {
       console.error("Error adding source:", err);
+    }
+  };
+
+  const handleRecordSubmit = async (audioSource: AudioSource) => {
+    try {
+      // Create a source from the audio source
+      const newSource: Source = {
+        ...audioSource,
+        id: `temp-recording-${Date.now()}`, // Temporary ID
+      };
+      
+      if (audioSource.file) {
+        // Save to Supabase
+        const savedSource = await saveSource(newSource, audioSource.file);
+        
+        // Update local state
+        setSources(prev => [...prev, savedSource]);
+        setSelectedSource(savedSource);
+        setIsProcessing(true);
+        
+        // Process the audio after saving
+        await fetchTranscriptAndSummary(savedSource);
+      }
+    } catch (error) {
+      console.error("Error handling recording:", error);
     }
   };
 
@@ -521,32 +648,39 @@ const Notebook = () => {
               </DialogContent>
             </Dialog>
             
-            <RecordSourceDialog onAddSource={(newSource) => {
-              setSources(prev => [...prev, newSource]);
-              setSelectedSource(newSource);
-            }} />
+            <RecordSourceDialog onAddSource={handleRecordSubmit} />
           </div>
             
           <div className="space-y-2">
-            {sources.map((source) => (
-              <div
-                key={source.id}
-                className={`flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer ${
-                  selectedSource?.id === source.id ? "bg-muted" : ""
-                }`}
-                onClick={() => setSelectedSource(source)}
-              >
-                {source.type === "audio" ? (
-                  <Mic className="h-4 w-4 text-primary" />
-                ) : (
-                  <FileText className="h-4 w-4 text-primary" />
-                )}
-                <div className="flex-1">
-                  <div>{source.title}</div>
-                  {source.duration && <div className="text-xs text-muted-foreground">{source.duration}</div>}
-                </div>
+            {isLoadingSources ? (
+              <div className="p-4 text-center">
+                <p className="text-muted-foreground">Loading your sources...</p>
               </div>
-            ))}
+            ) : sources.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-muted-foreground">No sources found. Upload or record to get started.</p>
+              </div>
+            ) : (
+              sources.map((source) => (
+                <div
+                  key={source.id}
+                  className={`flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer ${
+                    selectedSource?.id === source.id ? "bg-muted" : ""
+                  }`}
+                  onClick={() => setSelectedSource(source)}
+                >
+                  {source.type === "audio" ? (
+                    <Mic className="h-4 w-4 text-primary" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-primary" />
+                  )}
+                  <div className="flex-1">
+                    <div>{source.title}</div>
+                    {source.duration && <div className="text-xs text-muted-foreground">{source.duration}</div>}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
