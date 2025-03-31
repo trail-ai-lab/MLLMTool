@@ -81,11 +81,11 @@ async function queryBackend(question: string, context: string): Promise<QueryRes
   }
 }
 
-// Extend AudioSource type to include PDF sources
+// Update the local Source interface
 interface Source {
   id: string;
   title: string;
-  type: "audio" | "pdf";
+  type: "audio" | "pdf" | "transcript";
   duration?: string;
   path: string;
   file?: File;
@@ -124,6 +124,7 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedSources, setProcessedSources] = useState<Set<string>>(new Set());
   const [sourceCache, setSourceCache] = useState<SourceCache>({});
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Update sources when initialSources change (user's sources from database)
   useEffect(() => {
@@ -292,9 +293,10 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
       return;
     }
     
-    // Otherwise, proceed with transcription as before
-    setTranscript("Fetching transcript...");
-    setSummary("Generating summary...");
+    // Otherwise, proceed with transcription
+    setIsTranscribing(true);
+    setTranscript("Generating transcript... This may take a few minutes.");
+    setSummary("Waiting for transcript to complete...");
 
     try {
       // Always fetch the file from the URL, whether it's a blob URL or a public URL
@@ -304,7 +306,15 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
       audioFile = new File([blob], "audio.wav", { type: blob.type || "audio/wav" });
       
       if (audioFile) {
+        // First step: Transcribe the audio
         const transcribedText = await transcribeAudio(audioFile);
+        
+        if (transcribedText.startsWith("Transcription failed:")) {
+          setTranscript(transcribedText);
+          setSummary("Could not generate summary due to transcription failure.");
+          return;
+        }
+        
         setTranscript(transcribedText);
         
         setSourceCache(prev => ({
@@ -321,6 +331,8 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
           console.warn('Could not save transcript to localStorage:', error);
         }
 
+        // Second step: Generate summary from transcript
+        setSummary("Generating summary from transcript...");
         const summaryText = await summarizeTranscript(transcribedText);
         setSummary(summaryText);
         
@@ -338,7 +350,7 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
           console.warn('Could not save summary to localStorage:', error);
         }
 
-        // Add the saving to Supabase after processing
+        // Save to Supabase after processing
         if (transcribedText && summaryText) {
           await saveSourceDataToSupabase(source.id, {
             transcript: transcribedText,
@@ -360,9 +372,11 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
         console.warn('Could not save processed sources to localStorage:', error);
       }
     } catch (error) {
-      setTranscript("Error transcribing audio.");
-      setSummary("Error generating summary.");
-      console.error(error);
+      console.error("Error processing audio:", error);
+      setTranscript(`Processing error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setSummary("Could not generate summary due to an error.");
+    } finally {
+      setIsTranscribing(false);
     }
   };
   
@@ -546,19 +560,25 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
       };
       
       if (audioSource.file) {
+        // Set loading state
+        setIsProcessing(true);
+        
         // Save to Supabase
         const savedSource = await saveSource(newSource, audioSource.file);
         
         // Update local state
         setSources(prev => [...prev, savedSource]);
         setSelectedSource(savedSource);
-        setIsProcessing(true);
         
         // Process the audio after saving
         await fetchTranscriptAndSummary(savedSource);
       }
     } catch (error) {
       console.error("Error handling recording:", error);
+      setTranscript(`Error processing recording: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setSummary("Could not process recording.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -716,9 +736,27 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
 
                     {/* Summary Section */}
                     <h3 className="font-semibold mt-6 mb-4">Summary</h3>
-                    <p className="text-muted-foreground">
-                      {summary || "Generating summary..."}
-                    </p>
+                    <div className="flex-1">
+                      {isTranscribing ? (
+                        <div className="text-center p-4">
+                          <div className="animate-pulse mb-2">
+                            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-1/3 mx-auto"></div>
+                          </div>
+                          <p>Generating summary... This may take a moment.</p>
+                        </div>
+                      ) : (
+                        <>
+                          {summary ? (
+                            <div className="whitespace-pre-wrap">{summary}</div>
+                          ) : (
+                            <div className="italic">
+                              {language === "en" ? "No summary available." : "No hay resumen disponible."}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
 
@@ -777,7 +815,15 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
                 {selectedSource.type === "audio" ? (
                   <ScrollArea className="h-full">
                     <div className="space-y-4 whitespace-pre-wrap text-muted-foreground">
-                      {renderWithHighlights(transcript || "Fetching transcript...")}
+                      {isTranscribing ? (
+                        <div className="text-center p-4">
+                          <div className="animate-pulse mb-2">
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                          </div>
+                          <p>Generating transcript... This may take several minutes depending on the audio length.</p>
+                        </div>
+                      ) : renderWithHighlights(transcript || "Waiting for transcript...")}
                     </div>
                   </ScrollArea>
                 ) : selectedSource.type === "pdf" ? (
@@ -787,6 +833,12 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
                       onTextContentChange={setPDFTextContent} 
                     />
                   </div>
+                ) : selectedSource.type === "transcript" ? (
+                  <ScrollArea className="h-full">
+                    <div className="space-y-4 whitespace-pre-wrap text-muted-foreground">
+                      {renderWithHighlights(transcript || "Waiting for transcript...")}
+                    </div>
+                  </ScrollArea>
                 ) : null}
               </>
             ) : (
