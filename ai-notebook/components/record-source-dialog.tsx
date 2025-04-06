@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Mic, StopCircle } from "lucide-react";
 import type { AudioSource } from "../types/audio";
+import { Input } from "@/components/ui/input"; // Import the Input component
 
 // Import your DB helper functions and Supabase client
 import { uploadFileToStorage } from "@/lib/fileUploader";
@@ -26,6 +27,7 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [title, setTitle] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<BlobPart[]>([]);
 
@@ -63,7 +65,7 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
   };
 
   const saveRecording = async () => {
-    if (!audioBlob) return;
+    if (!audioBlob || !title.trim()) return;
     setIsSaving(true);
     try {
       // Convert Blob to File
@@ -90,7 +92,7 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
 
       // Insert a new source record into the DB using the public URL
       const newSource = await insertSource({
-        title: `Recording ${new Date().toLocaleTimeString()}`,
+        title: title.trim(), // Use the user-provided title
         type: "audio",
         file_path: publicUrl,
         duration: "Unknown", // Update if you calculate duration
@@ -112,6 +114,7 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
       setIsDialogOpen(false);
       setAudioBlob(null);
       setIsRecording(false);
+      setTitle(""); // Reset the title
     } catch (error) {
       console.error("Error saving recording:", error);
     } finally {
@@ -145,9 +148,27 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
           )}
 
           {audioBlob && (
-            <div className="w-full">
+            <div className="w-full space-y-4">
               <audio controls src={URL.createObjectURL(audioBlob)} className="w-full" />
-              <Button onClick={saveRecording} className="mt-2 w-full" disabled={isSaving}>
+              
+              <div className="space-y-2">
+                <label htmlFor="audio-title" className="text-sm font-medium">
+                  Recording Title
+                </label>
+                <Input
+                  id="audio-title"
+                  placeholder="Enter a title for your recording"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <Button 
+                onClick={saveRecording} 
+                className="mt-2 w-full" 
+                disabled={isSaving || !title.trim()}
+              >
                 {isSaving ? "Saving..." : "Save Recording"}
               </Button>
             </div>

@@ -90,10 +90,8 @@ interface Source {
   file?: File;
 }
 
-const INITIAL_SOURCES: Source[] = [
-  { id: "1", title: "Interview #1", type: "audio", duration: "12:34", path: "/audio1.mp3" },
-  { id: "2", title: "Meeting Notes", type: "audio", duration: "05:20", path: "/audio2.mp3" },
-];
+// Initialize with empty array - no default sources
+const INITIAL_SOURCES: Source[] = [];
 
 // Interface to store cached data for each source
 interface SourceCache {
@@ -312,7 +310,7 @@ const Notebook = () => {
     return sentences.map((sentence, index) => {
       const isHighlighted = highlights.some(h => h.index === index);
       return isHighlighted ? (
-        <mark key={index} className="bg-yellow-100 px-1 rounded">
+        <mark key={index} className="bg-yellow-100 px-1 rounded dark:bg-yellow-800">
           {sentence}
         </mark>
       ) : (
@@ -614,7 +612,7 @@ const Notebook = () => {
 
                 {/* Display Response */}
                 {response && (
-                  <div className="mt-4 p-4 border rounded bg-gray-100 whitespace-pre-line">
+                  <div className="mt-4 p-4 border rounded bg-muted whitespace-pre-line">
                     <p className="font-semibold">Response:</p>
                     <p>{response}</p>
                   </div>
