@@ -165,13 +165,29 @@ export async function saveSourceData(sourceId: string, data: {
 }
 
 export async function getSourceData(sourceId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error("User not authenticated when retrieving source data");
+    return null;
+  }
+  
+  console.log(`Getting source data for source ${sourceId}, user ${user.id}`);
+  
   const { data, error } = await supabase
     .from('source_data')
     .select('*')
     .eq('source_id', sourceId)
+    .eq('user_id', user.id) // Add this line to explicitly match on user_id
     .single();
     
-  if (error && error.code !== 'PGRST116') { // PGRST116 is the error code for no rows returned
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No data found - this is OK
+      console.log(`No source data found for source ${sourceId}`);
+      return null;
+    }
+    
     console.error('Error fetching source data:', error);
     throw error;
   }

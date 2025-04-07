@@ -299,11 +299,72 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
     setSummary("Waiting for transcript to complete...");
 
     try {
-      // Always fetch the file from the URL, whether it's a blob URL or a public URL
       let audioFile: File | null = null;
-      const response = await fetch(source.path);
-      const blob = await response.blob();
-      audioFile = new File([blob], "audio.wav", { type: blob.type || "audio/wav" });
+      try {
+        console.log("Fetching audio from:", source.path);
+        
+        // For Supabase storage URLs, use Supabase to download directly
+        if (source.path.includes('supabase')) {
+          try {
+            console.log("Accessing Supabase file:", source.path);
+            
+            // Extract the file path differently - this is the key fix
+            // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+            const urlParts = source.path.split('/public/');
+            if (urlParts.length < 2) {
+              throw new Error("Invalid Supabase storage URL format");
+            }
+            
+            const pathParts = urlParts[1].split('/');
+            const bucketName = pathParts[0]; // This should be 'audio_files' or 'pdf_files'
+            const objectPath = pathParts.slice(1).join('/');
+            
+            console.log(`Downloading from bucket: ${bucketName}, path: ${objectPath}`);
+            
+            // Download the file using Supabase client with correct path
+            const { data, error } = await supabase
+              .storage
+              .from(bucketName)
+              .download(objectPath);
+              
+            if (error) {
+              console.error("Supabase download error:", error);
+              throw error;
+            }
+            
+            if (!data) {
+              throw new Error("No data returned from Supabase");
+            }
+            
+            console.log("File downloaded successfully, size:", data.size, "type:", data.type);
+            
+            // Create a proper audio file with correct MIME type
+            audioFile = new File([data], "audio.wav", { 
+              type: "audio/wav"  // Explicitly set audio MIME type
+            });
+          } catch (downloadError) {
+            console.error("Error accessing Supabase file:", downloadError);
+            throw downloadError;
+          }
+        } else {
+          // For local or public URLs, use fetch
+          const response = await fetch(source.path);
+          const blob = await response.blob();
+          
+          console.log("Blob fetched:", blob.type, blob.size);
+          
+          audioFile = new File([blob], "audio.wav", { 
+            type: "audio/wav"  // Explicitly set correct MIME type regardless of blob.type
+          });
+        }
+        
+        console.log("Audio file prepared:", audioFile.type, audioFile.size);
+      } catch (downloadError) {
+        console.error("Error downloading audio file:", downloadError);
+        setTranscript(`Error downloading audio: ${downloadError.message}`);
+        setSummary("Could not process audio due to download error.");
+        return;
+      }
       
       if (audioFile) {
         // First step: Transcribe the audio
