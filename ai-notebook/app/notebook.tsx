@@ -15,6 +15,8 @@ import { RecordSourceDialog } from "@/components/record-source-dialog";
 import { transcribeAudio } from "@/lib/transcribe";
 import { summarizeTranscript } from "@/lib/summarize";
 import CustomPDFViewer from "@/components/CustomPDFViewer";
+import { getGroqHighlights, combineHighlights } from "@/lib/groqHighlightUtils";
+
 import {
   Dialog,
   DialogContent,
@@ -302,21 +304,50 @@ const Notebook = () => {
   }, [selectedSource, sourceCache, processedSources]);
 
   // Helper function to render transcript with highlights
-  const renderWithHighlights = (text: string | null) => {
-    if (!text || !highlights.length) return text;
-    
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    return sentences.map((sentence, index) => {
-      const isHighlighted = highlights.some(h => h.index === index);
-      return isHighlighted ? (
-        <mark key={index} className="bg-yellow-100 px-1 rounded dark:bg-yellow-800">
-          {sentence}
+  // Helper function to render transcript with highlights
+const renderWithHighlights = (text: string | null) => {
+  if (!text || !highlights.length) return text;
+  
+  // Split the text into sentences
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  
+  // Create a map to track which indices are highlighted
+  const highlightMap = new Map();
+  
+  // Add all highlight indices to the map
+  highlights.forEach(highlight => {
+    highlightMap.set(highlight.index, highlight.score || 0.8);
+  });
+  
+  // Render each sentence with appropriate highlighting
+  return sentences.map((sentence, index) => {
+    if (highlightMap.has(index)) {
+      const score = highlightMap.get(index);
+      // Calculate opacity based on score (higher score = more intense color)
+      const opacity = Math.min(0.3 + score * 0.7, 1).toFixed(2);
+      
+      return (
+        <mark 
+          key={index} 
+          className="px-1 rounded" 
+          style={{ 
+            backgroundColor: `rgba(250, 204, 21, ${opacity})`,
+            textDecoration: 'underline',
+            textDecorationColor: 'rgba(202, 138, 4, 0.6)',
+            textDecorationStyle: 'dotted',
+            textDecorationThickness: '2px',
+            textUnderlineOffset: '3px'
+          }}
+          title={`Relevance score: ${(score * 100).toFixed(0)}%`}
+        >
+          {sentence} 
         </mark>
-      ) : (
-        <span key={index}>{sentence} </span>
       );
-    });
-  };
+    }
+    
+    return <span key={index}>{sentence} </span>;
+  });
+};
 
   const handleQuerySubmit = async () => {
     if (!query.trim() || !selectedSource) return;
@@ -345,29 +376,77 @@ const Notebook = () => {
         return;
       }
       
+      // Start LLM request
       const llmPromise = fetchLLMResponse(`Question: ${query}\n\nContext from ${selectedSource.type}: ${context.substring(0, 2000)}...`);
       
       let fullResponse = "";
-      let apiResponse = null;
       
       try {
-        apiResponse = await queryBackend(query, context);
+        // First, get response from backend API
+        const apiResponse = await queryBackend(query, context);
         fullResponse = apiResponse.answer;
         
+        // Set the highlights from the backend first
         if (apiResponse.highlights && apiResponse.highlights.length > 0) {
           setHighlights(apiResponse.highlights);
+        }
+        
+        // Then try to get Groq highlights separately
+        try {
+          const groqHighlights = await getGroqHighlights(query, context);
           
-          if (apiResponse.merged_highlights && apiResponse.merged_highlights.length > 0) {
-            const uniqueHighlights = apiResponse.merged_highlights.filter(h => 
-              h.text.trim() !== apiResponse.answer.trim()
-            );
+          if (groqHighlights && groqHighlights.length > 0) {
+            console.log('Groq highlights received:', groqHighlights);
             
-            if (uniqueHighlights.length > 0) {
-              const highlightTexts = uniqueHighlights.map(h => 
-                `· ${h.text} (confidence: ${Math.min((h.avg_score * 100), 99).toFixed(0)}%)`
-              );
-              fullResponse += `\n\nRelevant passages:\n${highlightTexts.join('\n\n')}`;
+            // Create highlight objects from indices
+            const sentences = context.split(/(?<=[.!?])\s+/);
+            const groqHighlightObjects = groqHighlights.map(index => ({
+              index: index,
+              text: index >= 0 && index < sentences.length ? sentences[index] : "",
+              score: 0.85 // Default score for Groq highlights
+            }));
+            
+            // If we have backend highlights, combine them
+            if (apiResponse.highlights && apiResponse.highlights.length > 0) {
+              // Create a map from the backend highlights for quick lookup
+              const highlightMap = new Map();
+              apiResponse.highlights.forEach(highlight => {
+                highlightMap.set(highlight.index, highlight);
+              });
+              
+              // Combine with Groq highlights
+              const combinedHighlights: Highlight[] = [...apiResponse.highlights];
+              
+              // Add Groq highlights that aren't in the backend results
+              groqHighlightObjects.forEach(highlight => {
+                if (!highlightMap.has(highlight.index)) {
+                  combinedHighlights.push(highlight);
+                }
+              });
+              
+              // Set the combined highlights
+              setHighlights(combinedHighlights);
+            } else {
+              // No backend highlights, just use Groq's
+              setHighlights(groqHighlightObjects);
             }
+          }
+        } catch (groqError) {
+          console.error('Groq API error:', groqError);
+          // If Groq fails, we'll still have the backend highlights
+        }
+        
+        // Process merged highlights if available
+        if (apiResponse.merged_highlights && apiResponse.merged_highlights.length > 0) {
+          const uniqueHighlights = apiResponse.merged_highlights.filter(h => 
+            h.text.trim() !== apiResponse.answer.trim()
+          );
+          
+          if (uniqueHighlights.length > 0) {
+            const highlightTexts = uniqueHighlights.map(h => 
+              `· ${h.text} (confidence: ${Math.min((h.avg_score * 100), 99).toFixed(0)}%)`
+            );
+            fullResponse += `\n\nRelevant passages:\n${highlightTexts.join('\n\n')}`;
           }
         }
       } catch (backendError) {
@@ -376,6 +455,7 @@ const Notebook = () => {
       }
       
       try {
+        // Wait for LLM response
         const llmResponse = await llmPromise;
         fullResponse += `\n\nChatbot Response:\n${llmResponse}`;
       } catch (llmError) {
