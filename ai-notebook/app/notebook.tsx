@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Mic, Share, ChevronRight, Upload } from "lucide-react";
+import { FileText, Mic, Share, ChevronRight, Upload, Trash2 } from "lucide-react";
 import { SettingsDialog } from "../components/settings-dialog";
 import { useLanguage } from "../contexts/language-context";
 import type { AudioSource } from "../types/audio";
@@ -27,8 +27,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-// Define interfaces for API response
 interface Highlight {
   index: number;
   text: string;
@@ -49,10 +58,8 @@ interface QueryResponse {
   merged_highlights: MergedHighlight[];
 }
 
-// API URL with fallback
 const API_URL = process.env.NEXT_PUBLIC_BACKENDURL;
 
-// Helper function to query the backend API
 async function queryBackend(question: string, context: string): Promise<QueryResponse> {
   try {
     const response = await fetch(`${API_URL}/api/query`, {
@@ -64,7 +71,7 @@ async function queryBackend(question: string, context: string): Promise<QueryRes
         question,
         context,
         threshold: 0.7,
-        max_highlight_sentences: 3, // Allow up to 3 sentences to be highlighted
+        max_highlight_sentences: 3,
         chunk_size: 4,
         chunk_overlap: 2
       })
@@ -81,7 +88,6 @@ async function queryBackend(question: string, context: string): Promise<QueryRes
   }
 }
 
-// Extend AudioSource type to include PDF sources
 interface Source {
   id: string;
   title: string;
@@ -91,10 +97,8 @@ interface Source {
   file?: File;
 }
 
-// Initialize with empty array - no default sources
 const INITIAL_SOURCES: Source[] = [];
 
-// Interface to store cached data for each source
 interface SourceCache {
   [sourceId: string]: {
     transcript?: string;
@@ -120,14 +124,14 @@ const Notebook = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedSources, setProcessedSources] = useState<Set<string>>(new Set());
   const [sourceCache, setSourceCache] = useState<SourceCache>({});
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [sourceToDelete, setSourceToDelete] = useState<string | null>(null);
 
-  // Add a function to get text content from PDF viewer and cache it
   const setPDFTextContent = (content: string) => {
     if (!selectedSource) return;
     
     setTextContent(content);
     
-    // Update cache with the new text content
     setSourceCache(prev => ({
       ...prev,
       [selectedSource.id]: {
@@ -136,7 +140,6 @@ const Notebook = () => {
       }
     }));
     
-    // Save to localStorage
     try {
       localStorage.setItem(`source_textContent_${selectedSource.id}`, content);
     } catch (error) {
@@ -144,19 +147,15 @@ const Notebook = () => {
     }
   };
 
-  // Load cache from localStorage on component mount
   useEffect(() => {
     try {
-      // Load processed sources from localStorage
       const savedProcessedSources = localStorage.getItem('processedSources');
       if (savedProcessedSources) {
         setProcessedSources(new Set(JSON.parse(savedProcessedSources)));
       }
       
-      // Load source cache data
       const tempCache: SourceCache = {};
       
-      // Scan all localStorage items for our cache keys
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (!key) continue;
@@ -185,7 +184,6 @@ const Notebook = () => {
   const fetchTranscriptAndSummary = async (source: Source) => {
     if (source.type !== "audio") return;
     
-    // Check if we've already processed this source
     if (processedSources.has(source.id)) {
       if (sourceCache[source.id]?.transcript) {
         setTranscript(sourceCache[source.id].transcript || null);
@@ -205,7 +203,6 @@ const Notebook = () => {
     setSummary("Generating summary...");
 
     try {
-      // Always fetch the file from the URL, whether it's a blob URL or a public URL
       let audioFile: File | null = null;
       const response = await fetch(source.path);
       const blob = await response.blob();
@@ -266,7 +263,44 @@ const Notebook = () => {
     }
   };
   
-  // Handle source selection
+  const handleDeleteSource = (sourceId: string) => {
+    setSourceToDelete(sourceId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteSource = () => {
+    if (!sourceToDelete) return;
+
+    setSources(prev => prev.filter(source => source.id !== sourceToDelete));
+    
+    // Clean up if the deleted source was selected
+    if (selectedSource?.id === sourceToDelete) {
+      setSelectedSource(null);
+      setTranscript(null);
+      setSummary(null);
+      setTextContent("");
+    }
+
+    // Clean up cache
+    setSourceCache(prev => {
+      const newCache = {...prev};
+      delete newCache[sourceToDelete];
+      return newCache;
+    });
+
+    // Clean up localStorage
+    try {
+      localStorage.removeItem(`source_transcript_${sourceToDelete}`);
+      localStorage.removeItem(`source_summary_${sourceToDelete}`);
+      localStorage.removeItem(`source_textContent_${sourceToDelete}`);
+    } catch (error) {
+      console.warn('Error cleaning up localStorage:', error);
+    }
+
+    setSourceToDelete(null);
+    setShowDeleteDialog(false);
+  };
+
   useEffect(() => {
     if (!selectedSource) return;
     
@@ -303,51 +337,43 @@ const Notebook = () => {
     }
   }, [selectedSource, sourceCache, processedSources]);
 
-  // Helper function to render transcript with highlights
-  // Helper function to render transcript with highlights
-const renderWithHighlights = (text: string | null) => {
-  if (!text || !highlights.length) return text;
-  
-  // Split the text into sentences
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  
-  // Create a map to track which indices are highlighted
-  const highlightMap = new Map();
-  
-  // Add all highlight indices to the map
-  highlights.forEach(highlight => {
-    highlightMap.set(highlight.index, highlight.score || 0.8);
-  });
-  
-  // Render each sentence with appropriate highlighting
-  return sentences.map((sentence, index) => {
-    if (highlightMap.has(index)) {
-      const score = highlightMap.get(index);
-      // Calculate opacity based on score (higher score = more intense color)
-      const opacity = Math.min(0.3 + score * 0.7, 1).toFixed(2);
-      
-      return (
-        <mark 
-          key={index} 
-          className="px-1 rounded" 
-          style={{ 
-            backgroundColor: `rgba(250, 204, 21, ${opacity})`,
-            textDecoration: 'underline',
-            textDecorationColor: 'rgba(202, 138, 4, 0.6)',
-            textDecorationStyle: 'dotted',
-            textDecorationThickness: '2px',
-            textUnderlineOffset: '3px'
-          }}
-          title={`Relevance score: ${(score * 100).toFixed(0)}%`}
-        >
-          {sentence} 
-        </mark>
-      );
-    }
+  const renderWithHighlights = (text: string | null) => {
+    if (!text || !highlights.length) return text;
     
-    return <span key={index}>{sentence} </span>;
-  });
-};
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    const highlightMap = new Map();
+    
+    highlights.forEach(highlight => {
+      highlightMap.set(highlight.index, highlight.score || 0.8);
+    });
+    
+    return sentences.map((sentence, index) => {
+      if (highlightMap.has(index)) {
+        const score = highlightMap.get(index);
+        const opacity = Math.min(0.3 + score * 0.7, 1).toFixed(2);
+        
+        return (
+          <mark 
+            key={index} 
+            className="px-1 rounded" 
+            style={{ 
+              backgroundColor: `rgba(250, 204, 21, ${opacity})`,
+              textDecoration: 'underline',
+              textDecorationColor: 'rgba(202, 138, 4, 0.6)',
+              textDecorationStyle: 'dotted',
+              textDecorationThickness: '2px',
+              textUnderlineOffset: '3px'
+            }}
+            title={`Relevance score: ${(score * 100).toFixed(0)}%`}
+          >
+            {sentence} 
+          </mark>
+        );
+      }
+      
+      return <span key={index}>{sentence} </span>;
+    });
+  };
 
   const handleQuerySubmit = async () => {
     if (!query.trim() || !selectedSource) return;
@@ -376,67 +402,52 @@ const renderWithHighlights = (text: string | null) => {
         return;
       }
       
-      // Start LLM request
       const llmPromise = fetchLLMResponse(`Question: ${query}\n\nContext from ${selectedSource.type}: ${context.substring(0, 2000)}...`);
       
       let fullResponse = "";
       
       try {
-        // First, get response from backend API
         const apiResponse = await queryBackend(query, context);
         fullResponse = apiResponse.answer;
         
-        // Set the highlights from the backend first
         if (apiResponse.highlights && apiResponse.highlights.length > 0) {
           setHighlights(apiResponse.highlights);
         }
         
-        // Then try to get Groq highlights separately
         try {
           const groqHighlights = await getGroqHighlights(query, context);
           
           if (groqHighlights && groqHighlights.length > 0) {
-            console.log('Groq highlights received:', groqHighlights);
-            
-            // Create highlight objects from indices
             const sentences = context.split(/(?<=[.!?])\s+/);
             const groqHighlightObjects = groqHighlights.map(index => ({
               index: index,
               text: index >= 0 && index < sentences.length ? sentences[index] : "",
-              score: 0.85 // Default score for Groq highlights
+              score: 0.85
             }));
             
-            // If we have backend highlights, combine them
             if (apiResponse.highlights && apiResponse.highlights.length > 0) {
-              // Create a map from the backend highlights for quick lookup
               const highlightMap = new Map();
               apiResponse.highlights.forEach(highlight => {
                 highlightMap.set(highlight.index, highlight);
               });
               
-              // Combine with Groq highlights
               const combinedHighlights: Highlight[] = [...apiResponse.highlights];
               
-              // Add Groq highlights that aren't in the backend results
               groqHighlightObjects.forEach(highlight => {
                 if (!highlightMap.has(highlight.index)) {
                   combinedHighlights.push(highlight);
                 }
               });
               
-              // Set the combined highlights
               setHighlights(combinedHighlights);
             } else {
-              // No backend highlights, just use Groq's
               setHighlights(groqHighlightObjects);
             }
           }
         } catch (groqError) {
           console.error('Groq API error:', groqError);
-          // If Groq fails, we'll still have the backend highlights
         }
         
-        // Process merged highlights if available
         if (apiResponse.merged_highlights && apiResponse.merged_highlights.length > 0) {
           const uniqueHighlights = apiResponse.merged_highlights.filter(h => 
             h.text.trim() !== apiResponse.answer.trim()
@@ -455,7 +466,6 @@ const renderWithHighlights = (text: string | null) => {
       }
       
       try {
-        // Wait for LLM response
         const llmResponse = await llmPromise;
         fullResponse += `\n\nChatbot Response:\n${llmResponse}`;
       } catch (llmError) {
@@ -524,7 +534,6 @@ const renderWithHighlights = (text: string | null) => {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      
       {/* Left Sidebar */}
       <div className="w-80 border-r p-4">
         <div className="flex flex-col h-full">
@@ -622,13 +631,24 @@ const renderWithHighlights = (text: string | null) => {
                   <div>{source.title}</div>
                   {source.duration && <div className="text-xs text-muted-foreground">{source.duration}</div>}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteSource(source.id);
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Main Content - Audio & Summary */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <header className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-4">
@@ -647,7 +667,6 @@ const renderWithHighlights = (text: string | null) => {
           <div className="max-w-4xl mx-auto space-y-6">
             {selectedSource ? (
               <Card className="p-6">
-                {/* Audio Player (Only show for audio sources) */}
                 {selectedSource.type === "audio" && (
                   <>
                     <h3 className="font-semibold mb-4">Audio Playback</h3>
@@ -657,7 +676,6 @@ const renderWithHighlights = (text: string | null) => {
                       <p className="text-muted-foreground">Select an audio source to play.</p>
                     )}
 
-                    {/* Summary Section */}
                     <h3 className="font-semibold mt-6 mb-4">Summary</h3>
                     <p className="text-muted-foreground">
                       {summary || "Generating summary..."}
@@ -665,7 +683,6 @@ const renderWithHighlights = (text: string | null) => {
                   </>
                 )}
 
-                {/* Query Section */}
                 <h3 className="font-semibold mt-6 mb-4">
                   {selectedSource.type === "audio" 
                     ? "Ask about this Audio" 
@@ -689,7 +706,6 @@ const renderWithHighlights = (text: string | null) => {
                   </Button>
                 </div>
 
-                {/* Display Response */}
                 {response && (
                   <div className="mt-4 p-4 border rounded bg-muted whitespace-pre-line">
                     <p className="font-semibold">Response:</p>
@@ -708,7 +724,7 @@ const renderWithHighlights = (text: string | null) => {
         </ScrollArea>
       </div>
 
-      {/* Right Sidebar - Transcript or PDF Viewer */}
+      {/* Right Sidebar */}
       <div className="w-96 border-l p-4">
         <div className="flex flex-col h-full">
           <h2 className="text-lg mb-4">
@@ -740,6 +756,27 @@ const renderWithHighlights = (text: string | null) => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteSource}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
