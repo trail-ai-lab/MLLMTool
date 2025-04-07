@@ -614,25 +614,44 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
 
   const handleRecordSubmit = async (audioSource: AudioSource) => {
     try {
+      console.log("Received new audio source:", audioSource);
+      
       // Create a source from the audio source
       const newSource: Source = {
         ...audioSource,
-        id: `temp-recording-${Date.now()}`, // Temporary ID
+        id: audioSource.id || `temp-recording-${Date.now()}`, 
       };
       
       if (audioSource.file) {
         // Set loading state
         setIsProcessing(true);
         
-        // Save to Supabase
-        const savedSource = await saveSource(newSource, audioSource.file);
+        // First update the sources list immediately to show in sidebar
+        setSources(prev => [...prev, newSource]);
         
-        // Update local state
-        setSources(prev => [...prev, savedSource]);
-        setSelectedSource(savedSource);
+        // Then set as selected to show the content
+        setSelectedSource(newSource);
         
-        // Process the audio after saving
-        await fetchTranscriptAndSummary(savedSource);
+        // THEN start saving to Supabase - this can happen in the background
+        try {
+          const savedSource = await saveSource(newSource, audioSource.file);
+          
+          // Update the source in the sources list with the permanent ID from Supabase
+          setSources(prev => prev.map(source => 
+            source.id === newSource.id ? savedSource : source
+          ));
+          
+          // Update the selected source with the permanent one
+          if (selectedSource?.id === newSource.id) {
+            setSelectedSource(savedSource);
+          }
+          
+          // Process the audio after saving
+          await fetchTranscriptAndSummary(savedSource);
+        } catch (saveError) {
+          console.error("Error saving to Supabase:", saveError);
+          // The recording still appears in the UI, just won't be saved permanently
+        }
       }
     } catch (error) {
       console.error("Error handling recording:", error);

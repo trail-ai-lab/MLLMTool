@@ -9,9 +9,10 @@ import { supabase } from './supabaseClient';
  */
 export const uploadFileToStorage = async (file: File, filePath: string) => {
   try {
+    // Change 'media' to 'audio_files' to match your schema
     const { data, error } = await supabase
       .storage
-      .from('media') // Ensure the bucket name is correct
+      .from('audio_files') // Changed from 'media'
       .upload(filePath, file);
 
     if (error) {
@@ -26,3 +27,4 @@ export const uploadFileToStorage = async (file: File, filePath: string) => {
     throw new Error('An unexpected error occurred while uploading the file.');
   }
 };
+

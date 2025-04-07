@@ -65,50 +65,50 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
   const saveRecording = async () => {
     if (!audioBlob) return;
     setIsSaving(true);
+    
     try {
-      // Convert Blob to File
+      // 1. Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+      
+      // 2. Convert Blob to File
       const fileName = `recording-${Date.now()}.wav`;
       const file = new File([audioBlob], fileName, { type: "audio/wav" });
       
-      // Define the file path in your storage bucket
-      const filePath = `audio/${fileName}`;
-
-      // Upload the file to Supabase Storage
+      // 3. Create the path with user ID just like in saveSource
+      const filePath = `${user.id}/${fileName}`;
+      
+      // 4. Upload using the fileUploader that now uses the correct bucket
       await uploadFileToStorage(file, filePath);
-      console.log("File uploaded successfully");
-
-      // Retrieve the public URL for the uploaded file
+      console.log("Recording uploaded successfully to audio_files bucket");
+      
+      // 5. Get the public URL using the audio_files bucket (not media)
       const { data: publicData, error: publicError } = await supabase
         .storage
-        .from("media")
+        .from("audio_files")  // CHANGED: was "media", now "audio_files"
         .getPublicUrl(filePath);
+        
       if (publicError) {
         throw new Error(publicError.message);
       }
+      
       const publicUrl = publicData.publicUrl;
       console.log("Public URL:", publicUrl);
-
-      // Insert a new source record into the DB using the public URL
-      const newSource = await insertSource({
+      
+      // 6. Create a source object to pass to the parent
+      const newSource = {
+        id: `temp-recording-${Date.now()}`,
         title: `Recording ${new Date().toLocaleTimeString()}`,
-        type: "audio",
-        file_path: publicUrl,
-        duration: "Unknown", // Update if you calculate duration
-      });
-
-      // Map the returned DB record to an AudioSource object
-      const audioSource: AudioSource = {
-        id: newSource.id,
-        title: newSource.title,
-        type: "audio",
-        duration: newSource.duration,
-        path: newSource.file_path, // This now contains the public URL
+        type: "audio" as "audio" | "pdf" | "transcript",
+        path: publicUrl,
+        file: file,
+        duration: "00:00"
       };
-
-      // Pass the new AudioSource to the parent component
-      onAddSource(audioSource);
-
-      // Reset state and close the dialog
+      
+      // 7. Use the built-in saveSource function (skipping the db insert)
+      onAddSource(newSource);
+      
+      // 8. Reset state and close dialog
       setIsDialogOpen(false);
       setAudioBlob(null);
       setIsRecording(false);
