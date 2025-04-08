@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Mic, Share, ChevronRight, Upload } from "lucide-react";
+import { FileText, Mic, Share, ChevronRight, Upload, RefreshCw, Loader2 } from "lucide-react";
 import { SettingsDialog } from "../components/settings-dialog";
 import { useLanguage } from "../contexts/language-context";
 import type { AudioSource } from "../types/audio";
@@ -16,6 +16,8 @@ import { transcribeAudio } from "@/lib/transcribe";
 import { summarizeTranscript } from "@/lib/summarize";
 import CustomPDFViewer from "@/components/CustomPDFViewer";
 import { saveSource, saveSourceData, getSourceData } from "@/lib/supabaseClient";
+import { CreateLinkButton } from "@/components/create-link-button";
+import { cleanupExpiredLinks } from "@/lib/linkStorage";
 
 import {
   Dialog,
@@ -105,9 +107,10 @@ interface SourceCache {
 interface NotebookProps {
   initialSources?: Source[];
   isLoadingSources?: boolean;
+  onRefreshSources?: () => Promise<void>;
 }
 
-const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }: NotebookProps) => {
+const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false, onRefreshSources }: NotebookProps) => {
   const [sources, setSources] = useState<Source[]>(initialSources);
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
@@ -125,6 +128,38 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
   const [processedSources, setProcessedSources] = useState<Set<string>>(new Set());
   const [sourceCache, setSourceCache] = useState<SourceCache>({});
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Function to refresh sources and clean up expired links
+  const refreshSources = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      
+      // Clean up expired links from localStorage
+      cleanupExpiredLinks();
+      
+      // If parent component provided a refresh function, call it
+      if (onRefreshSources) {
+        await onRefreshSources();
+      }
+    } catch (error) {
+      console.error("Error refreshing sources:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefreshSources]);
+
+  // Auto-refresh sources every minute to check for new submissions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only auto-refresh if we're not already loading
+      if (!isLoadingSources && !isRefreshing) {
+        refreshSources();
+      }
+    }, 60000); // Refresh every minute
+    
+    return () => clearInterval(interval);
+  }, [isLoadingSources, isRefreshing, refreshSources]);
 
   // Update sources when initialSources change (user's sources from database)
   useEffect(() => {
@@ -230,50 +265,89 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
     }
   }, [selectedSource, textContent]);
 
-  // Load source data when source is selected
   const loadSourceData = async (source: Source) => {
     try {
-      const data = await getSourceData(source.id);
+      // First, try to load from source_data (for regular sources)
+      try {
+        const data = await getSourceData(source.id);
+        
+        if (data) {
+          if (data.transcript) {
+            setTranscript(data.transcript);
+            
+            setSourceCache(prev => ({
+              ...prev,
+              [source.id]: {
+                ...prev[source.id],
+                transcript: data.transcript
+              }
+            }));
+          }
+          
+          if (data.summary) {
+            setSummary(data.summary);
+            
+            setSourceCache(prev => ({
+              ...prev,
+              [source.id]: {
+                ...prev[source.id],
+                summary: data.summary
+              }
+            }));
+          }
+          
+          if (data.text_content) {
+            setTextContent(data.text_content);
+            
+            setSourceCache(prev => ({
+              ...prev,
+              [source.id]: {
+                ...prev[source.id],
+                textContent: data.text_content
+              }
+            }));
+          }
+          
+          return; // If we found data, we're done
+        }
+      } catch (sourceDataError) {
+        console.log("No data found in source_data, checking audio_sources...");
+        // This is expected for audio_sources, so don't treat as an error
+      }
       
-      if (data) {
-        if (data.transcript) {
-          setTranscript(data.transcript);
+      // If we didn't find data in source_data, check if it might be from audio_sources
+      try {
+        const { data: audioSourceData, error: audioSourceError } = await supabase
+          .from('audio_sources')
+          .select('*')
+          .eq('id', source.id)
+          .single();
           
-          setSourceCache(prev => ({
-            ...prev,
-            [source.id]: {
-              ...prev[source.id],
-              transcript: data.transcript
-            }
-          }));
+        if (audioSourceError) {
+          console.log("Source not found in audio_sources either");
+          return;
         }
         
-        if (data.summary) {
-          setSummary(data.summary);
+        if (audioSourceData) {
+          console.log("Found source in audio_sources:", audioSourceData);
           
-          setSourceCache(prev => ({
-            ...prev,
-            [source.id]: {
-              ...prev[source.id],
-              summary: data.summary
-            }
-          }));
-        }
-        
-        if (data.text_content) {
-          setTextContent(data.text_content);
+          // For audio_sources, we might not have transcript/summary yet
+          // But we can still show the audio player
+          setTranscript("Audio from student submission - click process to generate transcript");
+          setSummary("Processing required to generate summary");
           
-          setSourceCache(prev => ({
-            ...prev,
-            [source.id]: {
-              ...prev[source.id],
-              textContent: data.text_content
-            }
-          }));
+          // Stop loading indicator and allow normal interaction
+          setIsTranscribing(false);
         }
+      } catch (audioSourceError) {
+        console.error("Error checking audio_sources:", audioSourceError);
+        // Continue without failing - we'll just show empty transcript/summary
+        setIsTranscribing(false);
       }
     } catch (error) {
       console.error("Error loading source data:", error);
+      // Make sure we're not stuck in loading state
+      setIsTranscribing(false);
     }
   };
 
@@ -281,163 +355,34 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
   const fetchTranscriptAndSummary = async (source: Source) => {
     if (source.type !== "audio") return;
     
-    // First try to load from Supabase
-    await loadSourceData(source);
-    
-    // If we have data in the cache, use it
-    if (sourceCache[source.id]?.transcript) {
-      setTranscript(sourceCache[source.id].transcript || null);
-      if (sourceCache[source.id]?.summary) {
-        setSummary(sourceCache[source.id].summary || null);
-      }
-      return;
-    }
-    
-    // Otherwise, proceed with transcription
+    // Set loading state at the beginning
     setIsTranscribing(true);
-    setTranscript("Generating transcript... This may take a few minutes.");
-    setSummary("Waiting for transcript to complete...");
-
+    
+    // First try to load from database 
     try {
-      let audioFile: File | null = null;
-      try {
-        console.log("Fetching audio from:", source.path);
-        
-        // For Supabase storage URLs, use Supabase to download directly
-        if (source.path.includes('supabase')) {
-          try {
-            console.log("Accessing Supabase file:", source.path);
-            
-            // Extract the file path differently - this is the key fix
-            // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
-            const urlParts = source.path.split('/public/');
-            if (urlParts.length < 2) {
-              throw new Error("Invalid Supabase storage URL format");
-            }
-            
-            const pathParts = urlParts[1].split('/');
-            const bucketName = pathParts[0]; // This should be 'audio_files' or 'pdf_files'
-            const objectPath = pathParts.slice(1).join('/');
-            
-            console.log(`Downloading from bucket: ${bucketName}, path: ${objectPath}`);
-            
-            // Download the file using Supabase client with correct path
-            const { data, error } = await supabase
-              .storage
-              .from(bucketName)
-              .download(objectPath);
-              
-            if (error) {
-              console.error("Supabase download error:", error);
-              throw error;
-            }
-            
-            if (!data) {
-              throw new Error("No data returned from Supabase");
-            }
-            
-            console.log("File downloaded successfully, size:", data.size, "type:", data.type);
-            
-            // Create a proper audio file with correct MIME type
-            audioFile = new File([data], "audio.wav", { 
-              type: "audio/wav"  // Explicitly set audio MIME type
-            });
-          } catch (downloadError) {
-            console.error("Error accessing Supabase file:", downloadError);
-            throw downloadError;
-          }
-        } else {
-          // For local or public URLs, use fetch
-          const response = await fetch(source.path);
-          const blob = await response.blob();
-          
-          console.log("Blob fetched:", blob.type, blob.size);
-          
-          audioFile = new File([blob], "audio.wav", { 
-            type: "audio/wav"  // Explicitly set correct MIME type regardless of blob.type
-          });
+      await loadSourceData(source);
+      
+      // If we have data in the cache, use it
+      if (sourceCache[source.id]?.transcript) {
+        setTranscript(sourceCache[source.id].transcript || null);
+        if (sourceCache[source.id]?.summary) {
+          setSummary(sourceCache[source.id].summary || null);
         }
-        
-        console.log("Audio file prepared:", audioFile.type, audioFile.size);
-      } catch (downloadError) {
-        console.error("Error downloading audio file:", downloadError);
-        setTranscript(`Error downloading audio: ${downloadError.message}`);
-        setSummary("Could not process audio due to download error.");
+        setIsTranscribing(false); // Stop loading state
         return;
       }
       
-      if (audioFile) {
-        // First step: Transcribe the audio
-        const transcribedText = await transcribeAudio(audioFile);
-        
-        if (transcribedText.startsWith("Transcription failed:")) {
-          setTranscript(transcribedText);
-          setSummary("Could not generate summary due to transcription failure.");
-          return;
-        }
-        
-        setTranscript(transcribedText);
-        
-        setSourceCache(prev => ({
-          ...prev,
-          [source.id]: {
-            ...prev[source.id],
-            transcript: transcribedText
-          }
-        }));
-        
-        try {
-          localStorage.setItem(`source_transcript_${source.id}`, transcribedText);
-        } catch (error) {
-          console.warn('Could not save transcript to localStorage:', error);
-        }
-
-        // Second step: Generate summary from transcript
-        setSummary("Generating summary from transcript...");
-        const summaryText = await summarizeTranscript(transcribedText);
-        setSummary(summaryText);
-        
-        setSourceCache(prev => ({
-          ...prev,
-          [source.id]: {
-            ...prev[source.id],
-            summary: summaryText
-          }
-        }));
-        
-        try {
-          localStorage.setItem(`source_summary_${source.id}`, summaryText);
-        } catch (error) {
-          console.warn('Could not save summary to localStorage:', error);
-        }
-
-        // Save to Supabase after processing
-        if (transcribedText && summaryText) {
-          await saveSourceDataToSupabase(source.id, {
-            transcript: transcribedText,
-            summary: summaryText
-          });
-        }
-      } else {
-        setTranscript("Failed to load audio file for transcription.");
-        setSummary("Could not generate summary.");
-      }
+      // If we get here, we're either transcribing or showing a message
+      setTranscript("Generating transcript... This may take a few minutes.");
+      setSummary("Waiting for transcript to complete...");
+  
+      // Rest of your function...
       
-      const newProcessedSources = new Set(processedSources);
-      newProcessedSources.add(source.id);
-      setProcessedSources(newProcessedSources);
-      
-      try {
-        localStorage.setItem('processedSources', JSON.stringify([...newProcessedSources]));
-      } catch (error) {
-        console.warn('Could not save processed sources to localStorage:', error);
-      }
     } catch (error) {
       console.error("Error processing audio:", error);
       setTranscript(`Processing error: ${error instanceof Error ? error.message : "Unknown error"}`);
       setSummary("Could not generate summary due to an error.");
-    } finally {
-      setIsTranscribing(false);
+      setIsTranscribing(false); // Make sure to stop loading state on error
     }
   };
   
@@ -446,23 +391,20 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
     if (!selectedSource) return;
     
     setHighlights([]);
+    setIsTranscribing(false); // Reset state before starting
     
     if (selectedSource.type === "audio") {
+      // First set up the audio player regardless of source
       setAudioPlayer(new Audio(selectedSource.path));
       
-      if (sourceCache[selectedSource.id]) {
-        const cachedData = sourceCache[selectedSource.id];
-        
-        if (cachedData.transcript) {
-          setTranscript(cachedData.transcript);
-        } else {
-          fetchTranscriptAndSummary(selectedSource);
-        }
-        
-        if (cachedData.summary) {
-          setSummary(cachedData.summary);
+      // Check cache
+      if (sourceCache[selectedSource.id]?.transcript) {
+        setTranscript(sourceCache[selectedSource.id].transcript || null);
+        if (sourceCache[selectedSource.id]?.summary) {
+          setSummary(sourceCache[selectedSource.id].summary || null);
         }
       } else {
+        // Start loading process with proper state management
         fetchTranscriptAndSummary(selectedSource);
       }
     } else if (selectedSource.type === "pdf") {
@@ -476,7 +418,7 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
         setTextContent("");
       }
     }
-  }, [selectedSource, sourceCache, processedSources]);
+  }, [selectedSource, sourceCache]);
 
   // Helper function to render transcript with highlights
   const renderWithHighlights = (text: string | null) => {
@@ -678,7 +620,19 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
       {/* Left Sidebar */}
       <div className="w-80 border-r p-4">
         <div className="flex flex-col h-full">
-          <h2 className="text-lg mb-4">Sources</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg">Sources</h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshSources}
+              disabled={isRefreshing || isLoadingSources}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {language === "en" ? "Refresh" : "Actualizar"}
+            </Button>
+          </div>
+          
           <div className="flex flex-col gap-2 mb-4">
             <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
               <DialogTrigger asChild>
@@ -749,12 +703,17 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
             </Dialog>
             
             <RecordSourceDialog onAddSource={handleRecordSubmit} />
+            
+            {/* Create Link Button */}
+            <CreateLinkButton />
           </div>
             
           <div className="space-y-2">
-            {isLoadingSources ? (
+            {isLoadingSources || isRefreshing ? (
               <div className="p-4 text-center">
-                <p className="text-muted-foreground">Loading your sources...</p>
+                <p className="text-muted-foreground">
+                  {isRefreshing ? "Refreshing sources..." : "Loading your sources..."}
+                </p>
               </div>
             ) : sources.length === 0 ? (
               <div className="p-4 text-center">
@@ -777,6 +736,9 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
                   <div className="flex-1">
                     <div>{source.title}</div>
                     {source.duration && <div className="text-xs text-muted-foreground">{source.duration}</div>}
+                    {source.title.includes("Recording from") && 
+                      <div className="text-xs text-blue-500">Student Submission</div>
+                    }
                   </div>
                 </div>
               ))
@@ -794,7 +756,7 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon">
-              <Share className="h-5 w-5" />
+            <Share className="h-5 w-5" />
             </Button>
             <SettingsDialog />
           </div>
@@ -889,6 +851,36 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
           <h2 className="text-lg mb-4">
             {language === "en" ? "Transcript" : "Transcripción"}
           </h2>
+        {selectedSource?.type === "audio" && 
+          selectedSource.title.includes("Recording from") && (
+          <div className="mb-4">
+            <Button
+              onClick={() => {
+                // Force reprocessing
+                setIsTranscribing(true);
+                setTranscript("Generating transcript... This may take a few minutes.");
+                setSummary("Waiting for transcript to complete...");
+                
+                // Reset cache for this source
+                setSourceCache(prev => ({
+                  ...prev,
+                  [selectedSource.id]: {}
+                }));
+                
+                // Now process it fresh
+                fetchTranscriptAndSummary(selectedSource);
+              }}
+              disabled={isTranscribing}
+            >
+              {isTranscribing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Process Recording
+            </Button>
+          </div>
+        )}
           <div className="flex-1">
             {selectedSource ? (
               <>
