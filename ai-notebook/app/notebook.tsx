@@ -534,16 +534,29 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
       } catch (error) {
         console.warn('Error cleaning up localStorage:', error);
       }
+      
+      // Reset state and close dialog
+      setSourceToDelete(null);
+      setShowDeleteDialog(false);
+      setIsProcessing(false);
+      
+      // Refresh the page after a short delay to allow dialog to close
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
+      
+      return; // Exit early since we're refreshing
     }
   } catch (error) {
     console.error("Error deleting source:", error);
     // You could add a toast notification here to show the error
-  } finally {
-    setSourceToDelete(null);
-    setShowDeleteDialog(false);
-    setIsProcessing(false);
   }
-};
+  
+  // Only run these if there was an error or no source found
+  setSourceToDelete(null);
+  setShowDeleteDialog(false);
+  setIsProcessing(false);
+  };
 
  // Handle source selection
  useEffect(() => {
