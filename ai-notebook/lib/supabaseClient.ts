@@ -195,3 +195,74 @@ export async function getSourceData(sourceId: string) {
   
   return data;
 }
+
+// New function to delete a source and its associated data and files
+export async function deleteSource(sourceId: string, sourcePath: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) throw new Error('User not authenticated');
+  
+  console.log(`Deleting source ${sourceId} with path ${sourcePath}`);
+  
+  try {
+    // Step 1: Delete the source data
+    const { error: sourceDataError } = await supabase
+      .from('source_data')
+      .delete()
+      .eq('source_id', sourceId);
+      
+    if (sourceDataError) {
+      console.error('Error deleting source data:', sourceDataError);
+      // Continue with deletion even if this fails
+    }
+    
+    // Step 2: Delete the source record from audio_sources
+    const { error: sourceError } = await supabase
+      .from('audio_sources')
+      .delete()
+      .eq('id', sourceId);
+      
+    if (sourceError) {
+      console.error('Error deleting source record:', sourceError);
+      throw sourceError;
+    }
+    
+    // Step 3: Delete the file from storage
+    if (sourcePath) {
+      try {
+        // Extract the file path from the URL
+        // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+        const urlParts = sourcePath.split('/public/');
+        if (urlParts.length >= 2) {
+          const pathParts = urlParts[1].split('/');
+          const bucketName = pathParts[0]; // This should be 'audio_files' or 'pdf_files'
+          const objectPath = pathParts.slice(1).join('/');
+          
+          console.log(`Deleting file from bucket: ${bucketName}, path: ${objectPath}`);
+          
+          const { error: deleteError } = await supabase
+            .storage
+            .from(bucketName)
+            .remove([objectPath]);
+            
+          if (deleteError) {
+            console.error('Error deleting file from storage:', deleteError);
+            // Continue even if file deletion fails
+          } else {
+            console.log('File deleted successfully from storage');
+          }
+        } else {
+          console.warn('Could not parse file path from URL:', sourcePath);
+        }
+      } catch (error) {
+        console.error('Error handling file deletion:', error);
+        // Continue even if file deletion fails
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting source:', error);
+    throw error;
+  }
+}

@@ -15,7 +15,7 @@ import { RecordSourceDialog } from "@/components/record-source-dialog";
 import { transcribeAudio } from "@/lib/transcribe";
 import { summarizeTranscript } from "@/lib/summarize";
 import CustomPDFViewer from "@/components/CustomPDFViewer";
-import { saveSource, saveSourceData, getSourceData } from "@/lib/supabaseClient";
+import { saveSource, saveSourceData, getSourceData, deleteSource } from "@/lib/supabaseClient";
 import { getGroqHighlights, combineHighlights } from "@/lib/groqHighlightUtils";
 
 import {
@@ -493,38 +493,57 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
    setShowDeleteDialog(true);
  };
 
- const confirmDeleteSource = () => {
-   if (!sourceToDelete) return;
+ const confirmDeleteSource = async () => {
+  if (!sourceToDelete) return;
 
-   setSources(prev => prev.filter(source => source.id !== sourceToDelete));
-   
-   // Clean up if the deleted source was selected
-   if (selectedSource?.id === sourceToDelete) {
-     setSelectedSource(null);
-     setTranscript(null);
-     setSummary(null);
-     setTextContent("");
-   }
+  setIsProcessing(true);
+  
+  try {
+    // Find the source to get its path
+    const sourceToDeleteObj = sources.find(source => source.id === sourceToDelete);
+    
+    if (sourceToDeleteObj) {
+      // Delete from Supabase first
+      await deleteSource(sourceToDelete, sourceToDeleteObj.path);
+      
+      // Then update local state - remove the source from the sources array
+      setSources(prev => prev.filter(source => source.id !== sourceToDelete));
+      
+      // Clear selected source if the deleted one was selected
+      if (selectedSource?.id === sourceToDelete) {
+        setSelectedSource(null);
+        setTranscript(null);
+        setSummary(null);
+        setTextContent("");
+        setHighlights([]);
+        setResponse(null);
+      }
 
-   // Clean up cache
-   setSourceCache(prev => {
-     const newCache = {...prev};
-     delete newCache[sourceToDelete];
-     return newCache;
-   });
+      // Clean up cache
+      setSourceCache(prev => {
+        const newCache = {...prev};
+        delete newCache[sourceToDelete];
+        return newCache;
+      });
 
-   // Clean up localStorage
-   try {
-     localStorage.removeItem(`source_transcript_${sourceToDelete}`);
-     localStorage.removeItem(`source_summary_${sourceToDelete}`);
-     localStorage.removeItem(`source_textContent_${sourceToDelete}`);
-   } catch (error) {
-     console.warn('Error cleaning up localStorage:', error);
-   }
-
-   setSourceToDelete(null);
-   setShowDeleteDialog(false);
- };
+      // Clean up localStorage
+      try {
+        localStorage.removeItem(`source_transcript_${sourceToDelete}`);
+        localStorage.removeItem(`source_summary_${sourceToDelete}`);
+        localStorage.removeItem(`source_textContent_${sourceToDelete}`);
+      } catch (error) {
+        console.warn('Error cleaning up localStorage:', error);
+      }
+    }
+  } catch (error) {
+    console.error("Error deleting source:", error);
+    // You could add a toast notification here to show the error
+  } finally {
+    setSourceToDelete(null);
+    setShowDeleteDialog(false);
+    setIsProcessing(false);
+  }
+};
 
  // Handle source selection
  useEffect(() => {
@@ -1078,26 +1097,34 @@ const Notebook = ({ initialSources = INITIAL_SOURCES, isLoadingSources = false }
        </div>
      </div>
 
-     {/* Delete Confirmation Dialog */}
-     <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-       <AlertDialogContent>
-         <AlertDialogHeader>
-           <AlertDialogTitle>Are you sure you want to delete?</AlertDialogTitle>
-           <AlertDialogDescription>
-             This action cannot be undone.
-           </AlertDialogDescription>
-         </AlertDialogHeader>
-         <AlertDialogFooter>
-           <AlertDialogCancel>Cancel</AlertDialogCancel>
-           <AlertDialogAction 
-             onClick={confirmDeleteSource}
-             className="bg-destructive hover:bg-destructive/90"
-           >
-             Delete
-           </AlertDialogAction>
-         </AlertDialogFooter>
-       </AlertDialogContent>
-     </AlertDialog>
+    {/* Delete Confirmation Dialog */}
+    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure you want to delete?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. The source will be permanently deleted from your account.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={confirmDeleteSource}
+            className="bg-destructive hover:bg-destructive/90"
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <div className="flex items-center">
+                <div className="h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                Deleting...
+              </div>
+            ) : (
+              "Delete"
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
    </div>
  );
 };
