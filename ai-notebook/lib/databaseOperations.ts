@@ -41,13 +41,27 @@ export const fetchLatestRecordings = async (): Promise<Source[] | null> => {
 export const insertSource = async (source: {
   title: string;
   type: string;
-  file_path: string; // Must match the `file_path` column in your DB
+  file_path: string;
   duration?: string;
 }): Promise<Source> => {
   try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Insert into the audio_sources table to match your schema
     const { data, error } = await supabase
-      .from('sources')
-      .insert([source])
+      .from('audio_sources') // Make sure this matches your schema
+      .insert([{
+        user_id: user.id, // Add the user_id
+        title: source.title,
+        type: source.type,
+        duration: source.duration,
+        file_path: source.file_path,
+      }])
       .select() // Ensure the inserted row is returned
       .single();
 

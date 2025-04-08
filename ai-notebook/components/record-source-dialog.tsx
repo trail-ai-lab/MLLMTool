@@ -22,6 +22,8 @@ import {
 import { Mic, StopCircle } from "lucide-react";
 import type { AudioSource } from "../types/audio";
 import { Input } from "@/components/ui/input";
+import { uploadFileToStorage } from "@/lib/fileUploader";
+import { supabase } from "@/lib/supabaseClient";
 
 export function RecordSourceDialog({ onAddSource }: { onAddSource: (source: AudioSource) => void }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -104,23 +106,50 @@ export function RecordSourceDialog({ onAddSource }: { onAddSource: (source: Audi
     if (!audioBlob || !title.trim()) return;
     
     setIsSaving(true);
+    
     try {
-      // Create a more permanent reference to the blob
-      const audioUrl = URL.createObjectURL(audioBlob);
+      // 1. Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
       
-      const audioSource: AudioSource = {
-        id: Date.now().toString(),
-        title: title.trim(),
-        type: "audio",
-        duration: "0:30", // You should calculate this based on the blob
-        path: audioUrl, // Using the object URL
-        blob: audioBlob // Storing the blob directly for reliability
+      // 2. Convert Blob to File
+      const fileName = `recording-${Date.now()}.wav`;
+      const file = new File([audioBlob], fileName, { type: "audio/wav" });
+      
+      // 3. Create the path with user ID just like in saveSource
+      const filePath = `${user.id}/${fileName}`;
+      
+      // 4. Upload using the fileUploader that now uses the correct bucket
+      await uploadFileToStorage(file, filePath);
+      console.log("Recording uploaded successfully to audio_files bucket");
+      
+      // 5. Get the public URL using the audio_files bucket
+      const { data: publicData, error: publicError } = await supabase
+        .storage
+        .from("audio_files")
+        .getPublicUrl(filePath);
+        
+      if (publicError) {
+        throw new Error(publicError.message);
+      }
+      
+      const publicUrl = publicData.publicUrl;
+      console.log("Public URL:", publicUrl);
+      
+      // 6. Create a source object to pass to the parent
+      const newSource = {
+        id: `temp-recording-${Date.now()}`,
+        title: title.trim(), // Use the title from input field
+        type: "audio" as "audio" | "pdf" | "transcript",
+        path: publicUrl,
+        file: file,
+        duration: "00:00"
       };
-
-      // Pass the audio source to the parent component
-      onAddSource(audioSource);
-
-      // Reset the dialog state
+      
+      // 7. Pass the source to the parent component
+      onAddSource(newSource);
+      
+      // Reset state and close dialog
       setIsDialogOpen(false);
       setAudioBlob(null);
       setTitle("");
