@@ -1,19 +1,31 @@
-"use client"
+"use client";
 
-import { useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Mic, StopCircle } from "lucide-react"
-import type { AudioSource } from "../types/audio"
+import { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Mic, StopCircle } from "lucide-react";
+import type { AudioSource } from "../types/audio";
+
+// Import your DB helper functions and Supabase client
+import { uploadFileToStorage } from "@/lib/fileUploader";
+import { insertSource } from "@/lib/databaseOperations";
+import { supabase } from "@/lib/supabaseClient";
 
 interface RecordSourceDialogProps {
-  onAddSource: (source: AudioSource) => void
+  onAddSource: (source: AudioSource) => void;
 }
 
 export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<BlobPart[]>([]);
 
@@ -21,6 +33,7 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
+      audioChunks.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -49,24 +62,61 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
     }
   };
 
-  const saveRecording = () => {
+  const saveRecording = async () => {
     if (!audioBlob) return;
+    setIsSaving(true);
+    try {
+      // Convert Blob to File
+      const fileName = `recording-${Date.now()}.wav`;
+      const file = new File([audioBlob], fileName, { type: "audio/wav" });
+      
+      // Define the file path in your storage bucket
+      const filePath = `audio/${fileName}`;
 
-    const audioURL = URL.createObjectURL(audioBlob);
-    const newSource: AudioSource = {
-      id: Date.now().toString(),
-      title: `Recording ${new Date().toLocaleTimeString()}`,
-      type: "audio",
-      duration: "Unknown", // Duration calculation can be added later
-      path: audioURL,
-    };
+      // Upload the file to Supabase Storage
+      await uploadFileToStorage(file, filePath);
+      console.log("File uploaded successfully");
 
-    onAddSource(newSource);
+      // Retrieve the public URL for the uploaded file
+      const { data: publicData, error: publicError } = await supabase
+        .storage
+        .from("media")
+        .getPublicUrl(filePath);
+      if (publicError) {
+        throw new Error(publicError.message);
+      }
+      const publicUrl = publicData.publicUrl;
+      console.log("Public URL:", publicUrl);
 
-    // Reset the component state after saving
-    setIsDialogOpen(false);
-    setAudioBlob(null);
-    setIsRecording(false);
+      // Insert a new source record into the DB using the public URL
+      const newSource = await insertSource({
+        title: `Recording ${new Date().toLocaleTimeString()}`,
+        type: "audio",
+        file_path: publicUrl,
+        duration: "Unknown", // Update if you calculate duration
+      });
+
+      // Map the returned DB record to an AudioSource object
+      const audioSource: AudioSource = {
+        id: newSource.id,
+        title: newSource.title,
+        type: "audio",
+        duration: newSource.duration,
+        path: newSource.file_path, // This now contains the public URL
+      };
+
+      // Pass the new AudioSource to the parent component
+      onAddSource(audioSource);
+
+      // Reset state and close the dialog
+      setIsDialogOpen(false);
+      setAudioBlob(null);
+      setIsRecording(false);
+    } catch (error) {
+      console.error("Error saving recording:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -97,8 +147,8 @@ export function RecordSourceDialog({ onAddSource }: RecordSourceDialogProps) {
           {audioBlob && (
             <div className="w-full">
               <audio controls src={URL.createObjectURL(audioBlob)} className="w-full" />
-              <Button onClick={saveRecording} className="mt-2 w-full">
-                Save Recording
+              <Button onClick={saveRecording} className="mt-2 w-full" disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save Recording"}
               </Button>
             </div>
           )}

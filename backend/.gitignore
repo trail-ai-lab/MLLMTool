@@ -6,6 +6,7 @@
 #txtfiles
 *.txt
 !requirements.txt
+!HighlightRequirements.txt
 
 #saved-audio-files
 saved_audio_files/
