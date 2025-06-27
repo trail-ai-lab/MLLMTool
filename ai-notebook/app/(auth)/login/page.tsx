@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -24,45 +24,40 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const { signIn } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!email || !password) {
-      toast({
-        title: "Error",
+      toast.error("Missing Fields", {
         description: "Please fill in all fields",
-        variant: "destructive",
       })
+      return
       return
     }
 
     try {
       setIsLoading(true)
       const { error } = await signIn(email, password)
-      
+
       if (error) {
-        toast({
-          title: "Login Failed",
-          description: error.message,
-          variant: "destructive",
+        toast.error("Login Failed", {
+          description:
+            error.message ||
+            "An unknown error occurred. Check console for details.",
         })
         return
       }
-      
-      toast({
-        title: "Success",
+
+      toast.success("Registration Successful", {
         description: "You are now logged in",
       })
-      
+
       // Redirect directly to notebook
       router.push("/notebook")
     } catch (error) {
-      toast({
-        title: "An error occurred",
+      toast.error("An error occurred", {
         description: "Please try again later",
-        variant: "destructive",
       })
     } finally {
       setIsLoading(false)
@@ -105,19 +100,12 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
-              <Link 
-                href="/signup" 
-                className="text-primary hover:underline"
-              >
+              <Link href="/signup" className="text-primary hover:underline">
                 Create an account
               </Link>
             </p>
@@ -126,4 +114,4 @@ export default function LoginPage() {
       </Card>
     </div>
   )
-} 
+}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import {
   Card,
   CardContent,
@@ -16,7 +17,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
 import { createOrUpdateProfile } from "@/lib/supabaseClient"
 
 export default function SignupPage() {
@@ -27,25 +27,20 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const { signUp } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!email || !password || !confirmPassword || !name) {
-      toast({
-        title: "Error",
+      toast.error("Missing Fields", {
         description: "Please fill in all fields",
-        variant: "destructive",
       })
       return
     }
 
     if (password !== confirmPassword) {
-      toast({
-        title: "Error",
+      toast.error("Password Mismatch", {
         description: "Passwords do not match",
-        variant: "destructive",
       })
       return
     }
@@ -53,33 +48,32 @@ export default function SignupPage() {
     try {
       setIsLoading(true)
       const { data, error } = await signUp(email, password)
-      
+
       if (error) {
-        toast({
-          title: "Registration Failed",
-          description: error.message,
-          variant: "destructive",
+        toast.error("Registration Failed", {
+          description:
+            error.message ||
+            "An unknown error occurred. Check console for details.",
         })
+        console.error("Sign-up failed:", error) // Keep this for deeper inspection
         return
       }
-      
+
       if (data?.user) {
         // Create a profile for the user
         await createOrUpdateProfile(name)
       }
-      
-      toast({
-        title: "Registration Successful",
-        description: "Your account has been created. Please check your email to confirm your account.",
+
+      toast.success("Registration Successful", {
+        description:
+          "Your account has been created. Please check your email to confirm your account.",
       })
-      
+
       // Redirect to login page
       router.push("/login")
     } catch (error) {
-      toast({
-        title: "An error occurred",
+      toast.error("An error occurred", {
         description: "Please try again later",
-        variant: "destructive",
       })
     } finally {
       setIsLoading(false)
@@ -141,19 +135,12 @@ export default function SignupPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Creating account..." : "Create account"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link 
-                href="/login" 
-                className="text-primary hover:underline"
-              >
+              <Link href="/login" className="text-primary hover:underline">
                 Sign in
               </Link>
             </p>
@@ -162,4 +149,4 @@ export default function SignupPage() {
       </Card>
     </div>
   )
-} 
+}
