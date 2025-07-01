@@ -1,14 +1,14 @@
 import { ThemeProvider } from "next-themes"
 import { LanguageProvider } from "../contexts/language-context"
 import { AuthProvider } from "../contexts/auth-context"
-import { Toaster } from "../components/ui/toaster"
+import { Toaster } from "@/components/ui/sonner"
 import type React from "react"
-import './globals.css'
+import "./globals.css"
 
 export const metadata = {
-  title: 'AI Notebook',
-  description: 'AI-powered audio and PDF processing for education',
-};
+  title: "AI Notebook",
+  description: "AI-powered audio and PDF processing for education",
+}
 
 export default function RootLayout({
   children,
@@ -19,11 +19,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <AuthProvider>
             <LanguageProvider>
               {children}
-              <Toaster />
+              <Toaster position="top-right" />
             </LanguageProvider>
           </AuthProvider>
         </ThemeProvider>

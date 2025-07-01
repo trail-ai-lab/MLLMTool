@@ -179,7 +179,7 @@ export async function getSourceData(sourceId: string) {
     .select('*')
     .eq('source_id', sourceId)
     .eq('user_id', user.id) // Add this line to explicitly match on user_id
-    .single();
+    .maybeSingle();
     
     
   if (error) {
@@ -264,5 +264,45 @@ export async function deleteSource(sourceId: string, sourcePath: string) {
   } catch (error) {
     console.error('Error deleting source:', error);
     throw error;
+  }
+}
+
+// Function to get a signed URL for audio playback
+export async function getSignedAudioUrl(filePath: string): Promise<string | null> {
+  try {
+    // Extract bucket and path from the public URL
+    const urlParts = filePath.split('/public/');
+    if (urlParts.length < 2) {
+      console.error("Invalid Supabase storage URL format:", filePath);
+      return filePath; // Return original URL as fallback
+    }
+    
+    const pathParts = urlParts[1].split('/');
+    const bucketName = pathParts[0];
+    const objectPath = pathParts.slice(1).join('/');
+    
+    console.log(`Getting signed URL for bucket: ${bucketName}, path: ${objectPath}`);
+    
+    // Get signed URL with 1 hour expiration
+    const { data, error } = await supabase
+      .storage
+      .from(bucketName)
+      .createSignedUrl(objectPath, 3600); // 1 hour expiration
+      
+    if (error) {
+      console.error('Error creating signed URL:', error);
+      return filePath; // Return original URL as fallback
+    }
+    
+    if (!data?.signedUrl) {
+      console.error('No signed URL returned');
+      return filePath; // Return original URL as fallback
+    }
+    
+    console.log('Signed URL created successfully');
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error in getSignedAudioUrl:', error);
+    return filePath; // Return original URL as fallback
   }
 }
