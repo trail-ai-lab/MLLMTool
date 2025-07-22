@@ -1,4 +1,3 @@
-// (auth)/login/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -33,31 +32,20 @@ export default function LoginPage() {
         description: "Please fill in all fields",
       })
       return
-      return
     }
 
     try {
       setIsLoading(true)
-      const { error } = await signIn(email, password)
+      await signIn(email, password)
 
-      if (error) {
-        toast.error("Login Failed", {
-          description:
-            error.message ||
-            "An unknown error occurred. Check console for details.",
-        })
-        return
-      }
-
-      toast.success("Registration Successful", {
-        description: "You are now logged in",
+      toast.success("Welcome back!", {
+        description: "You're now signed in to Trail Lab",
       })
 
-      // Redirect directly to notebook
       router.push("/notebook")
-    } catch (error) {
-      toast.error("An error occurred", {
-        description: "Please try again later",
+    } catch (error: any) {
+      toast.error("Login Failed", {
+        description: error?.message || "Please check your credentials.",
       })
     } finally {
       setIsLoading(false)
@@ -70,7 +58,8 @@ export default function LoginPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Sign in</CardTitle>
           <CardDescription>
-            Enter your email and password to access your AI notebook
+            Enter your email and password to access Trail Lab tools like{" "}
+            <strong>SLAI</strong>.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -87,9 +76,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"

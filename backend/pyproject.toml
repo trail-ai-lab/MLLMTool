@@ -1,0 +1,25 @@
+[project]
+name = "slai-backend"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Anurag Maravi",email = "amaravi@wisc.edu"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.13.3"
+dependencies = [
+    "fastapi (>=0.116.1,<0.117.0)",
+    "uvicorn[standard] (>=0.35.0,<0.36.0)",
+    "sentence-transformers (>=5.0.0,<6.0.0)",
+    "torch (>=2.7.1,<3.0.0)",
+    "numpy (>=2.3.1,<3.0.0)",
+    "nltk (>=3.9.1,<4.0.0)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "firebase-admin (>=7.0.0,<8.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

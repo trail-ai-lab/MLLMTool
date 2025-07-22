@@ -1,4 +1,3 @@
-// (auth)/signup/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createOrUpdateProfile } from "@/lib/supabaseClient"
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
@@ -47,33 +45,17 @@ export default function SignupPage() {
 
     try {
       setIsLoading(true)
-      const { data, error } = await signUp(email, password)
-
-      if (error) {
-        toast.error("Registration Failed", {
-          description:
-            error.message ||
-            "An unknown error occurred. Check console for details.",
-        })
-        console.error("Sign-up failed:", error) // Keep this for deeper inspection
-        return
-      }
-
-      if (data?.user) {
-        // Create a profile for the user
-        await createOrUpdateProfile(name)
-      }
+      await signUp(email, password, name)
 
       toast.success("Registration Successful", {
-        description:
-          "Your account has been created. Please check your email to confirm your account.",
+        description: "Your Trail Lab account has been created.",
       })
 
-      // Redirect to login page
       router.push("/login")
-    } catch (error) {
-      toast.error("An error occurred", {
-        description: "Please try again later",
+    } catch (error: any) {
+      console.error("Sign-up error:", error)
+      toast.error("Registration Failed", {
+        description: error?.message || "An unknown error occurred.",
       })
     } finally {
       setIsLoading(false)
@@ -86,7 +68,8 @@ export default function SignupPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Create an Account</CardTitle>
           <CardDescription>
-            Create an account to access the AI notebook
+            You're signing up for a <strong>Trail Lab</strong> account. This
+            will give you access to lab tools like <strong>SLAI</strong>.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
