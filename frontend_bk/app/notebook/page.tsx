@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import Notebook from "../notebook"
+import Notebook from "../../components/notebook"
 import { getUserSources } from "@/lib/supabaseClient"
 import { Source } from "@/types/source"
 
@@ -42,8 +42,17 @@ export default function NotebookPage() {
 
   // If still loading or user not authenticated, show loading state
   if (isLoading || !user) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>
+    return (
+      <div className="flex h-screen items-center justify-center">
+        Loading...
+      </div>
+    )
   }
 
-  return <Notebook initialSources={userSources} isLoadingSources={isLoadingSources} />
-} 
+  return (
+    <Notebook
+      initialSources={userSources}
+      isLoadingSources={isLoadingSources}
+    />
+  )
+}

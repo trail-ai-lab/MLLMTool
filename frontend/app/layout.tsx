@@ -1,36 +1,42 @@
-import { ThemeProvider } from "next-themes"
-import { LanguageProvider } from "../contexts/language-context"
-import { AuthProvider } from "../contexts/auth-context"
-import { Toaster } from "@/components/ui/sonner"
-import type React from "react"
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import { Toaster } from "sonner"
 import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
 
-export const metadata = {
-  title: "AI Notebook",
-  description: "AI-powered audio and PDF processing for education",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+})
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+})
+
+export const metadata: Metadata = {
+  title: "SLAI",
+  description: "Bridging Science and Language with AI",
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
-      <body>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <LanguageProvider>
-              {children}
-              <Toaster position="top-right" />
-            </LanguageProvider>
-          </AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
     </html>

@@ -60,7 +60,7 @@ export function RecordSourceDialog({ onAddSource }: { onAddSource: (source: Audi
       };
 
       mediaRecorder.onstop = () => {
-        const recordedBlob = new Blob(audioChunks.current, { type: "audio/wav" });
+        const recordedBlob = new Blob(audioChunks.current, { type: "audio/webm" });
         setAudioBlob(recordedBlob);
         // Create object URL for immediate playback
         const audioUrl = URL.createObjectURL(recordedBlob);
@@ -108,45 +108,26 @@ export function RecordSourceDialog({ onAddSource }: { onAddSource: (source: Audi
     setIsSaving(true);
     
     try {
-      // 1. Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      // 1. Convert Blob to File
+      const fileName = `recording-${Date.now()}.webm`;
+      const file = new File([audioBlob], fileName, { type: "audio/webm" });
       
-      // 2. Convert Blob to File
-      const fileName = `recording-${Date.now()}.wav`;
-      const file = new File([audioBlob], fileName, { type: "audio/wav" });
+      // 2. Upload using the GCS fileUploader
+      const uploadResult = await uploadFileToStorage(file);
+      console.log("Recording uploaded successfully to GCS:", uploadResult.path);
       
-      // 3. Create the path with user ID just like in saveSource
-      const filePath = `${user.id}/${fileName}`;
-      
-      // 4. Upload using the fileUploader that now uses the correct bucket
-      await uploadFileToStorage(file, filePath);
-      console.log("Recording uploaded successfully to audio_files bucket");
-      
-      // 5. Get the public URL using the audio_files bucket
-      const { data: publicData, error: publicError } = await supabase
-        .storage
-        .from("audio_files")
-        .getPublicUrl(filePath);
-        
-      if (publicError) {
-        throw new Error(publicError.message);
-      }
-      
-      const publicUrl = publicData.publicUrl;
-      console.log("Public URL:", publicUrl);
-      
-      // 6. Create a source object to pass to the parent
+      // 3. Create a source object to pass to the parent
+      // For GCS, we'll use the path as the URL since it's stored in GCS
       const newSource = {
         id: `temp-recording-${Date.now()}`,
-        title: title.trim(), // Use the title from input field
+        title: title.trim(),
         type: "audio" as "audio" | "pdf" | "transcript",
-        path: publicUrl,
+        path: uploadResult.path, // This is the GCS path
         file: file,
         duration: "00:00"
       };
       
-      // 7. Pass the source to the parent component
+      // 4. Pass the source to the parent component
       onAddSource(newSource);
       
       // Reset state and close dialog
@@ -155,7 +136,7 @@ export function RecordSourceDialog({ onAddSource }: { onAddSource: (source: Audi
       setTitle("");
     } catch (err) {
       console.error("Error saving recording:", err);
-      setError("Failed to save recording");
+      setError("Failed to save recording to GCS");
     } finally {
       setIsSaving(false);
     }

@@ -84,29 +84,41 @@ export async function saveSource(source: Source, file: File) {
   
   if (!user) throw new Error('User not authenticated');
   
-  // Determine bucket based on file type
-  const bucket = source.type === 'pdf' ? 'pdf_files' : 'audio_files';
-  const filePath = `${user.id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+  let filePath: string;
   
-  // Upload file to storage
-  const { data: fileData, error: uploadError } = await supabase
-    .storage
-    .from(bucket)
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false
-    });
+  // Handle different file types
+  if (source.type === 'pdf') {
+    // For PDFs, still use Supabase for now (you can migrate this later if needed)
+    const bucket = 'pdf_files';
+    const supabaseFilePath = `${user.id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
     
-  if (uploadError) {
-    console.error('Error uploading file:', uploadError);
-    throw uploadError;
+    // Upload file to Supabase storage
+    const { data: fileData, error: uploadError } = await supabase
+      .storage
+      .from(bucket)
+      .upload(supabaseFilePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (uploadError) {
+      console.error('Error uploading PDF file:', uploadError);
+      throw uploadError;
+    }
+    
+    // Get public URL for the file
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from(bucket)
+      .getPublicUrl(supabaseFilePath);
+      
+    filePath = publicUrl;
+  } else {
+    // For audio files, use GCS
+    const { uploadFileToGCSComplete } = await import('./gcsUploader');
+    const uploadResult = await uploadFileToGCSComplete(file);
+    filePath = uploadResult.path;
   }
-  
-  // Get public URL for the file
-  const { data: { publicUrl } } = supabase
-    .storage
-    .from(bucket)
-    .getPublicUrl(filePath);
     
   // Save source to database
   const { data, error } = await supabase
@@ -116,7 +128,7 @@ export async function saveSource(source: Source, file: File) {
       title: source.title,
       type: source.type,
       duration: source.duration,
-      file_path: publicUrl,
+      file_path: filePath,
     })
     .select()
     .single();
@@ -270,7 +282,40 @@ export async function deleteSource(sourceId: string, sourcePath: string) {
 // Function to get a signed URL for audio playback
 export async function getSignedAudioUrl(filePath: string): Promise<string | null> {
   try {
-    // Extract bucket and path from the public URL
+    // Check if this is a GCS path (starts with user_id/)
+    if (filePath.includes('/') && !filePath.startsWith('http')) {
+      // This is a GCS path, we need to get a signed URL from our backend
+      console.log('Getting signed URL for GCS file:', filePath);
+      
+      const { getIdToken } = await import('./getIdToken');
+      const { API_BASE_URL } = await import('./constants');
+      
+      const token = await getIdToken();
+      if (!token) {
+        console.error('User not authenticated for GCS signed URL');
+        return null;
+      }
+
+      // Call backend to get a signed download URL for the GCS file
+      const response = await fetch(`${API_BASE_URL}/api/v1/audio/download-url`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ path: filePath }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to get GCS signed URL:', response.statusText);
+        return null;
+      }
+
+      const { downloadUrl } = await response.json();
+      return downloadUrl;
+    }
+    
+    // This is a Supabase URL, handle as before
     const urlParts = filePath.split('/public/');
     if (urlParts.length < 2) {
       console.error("Invalid Supabase storage URL format:", filePath);
@@ -281,7 +326,7 @@ export async function getSignedAudioUrl(filePath: string): Promise<string | null
     const bucketName = pathParts[0];
     const objectPath = pathParts.slice(1).join('/');
     
-    console.log(`Getting signed URL for bucket: ${bucketName}, path: ${objectPath}`);
+    console.log(`Getting signed URL for Supabase bucket: ${bucketName}, path: ${objectPath}`);
     
     // Get signed URL with 1 hour expiration
     const { data, error } = await supabase

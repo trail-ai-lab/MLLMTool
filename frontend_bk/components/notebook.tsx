@@ -14,7 +14,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react"
-import { SettingsDialog } from "../components/settings-dialog"
+import { SettingsDialog } from "./settings-dialog"
 import { useLanguage } from "../contexts/language-context"
 import type { AudioSource } from "../types/audio"
 import { fetchLLMResponse } from "@/lib/groqApi"
