@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { triggerOnboarding } from "@/lib/api/onboard"
+import { getFriendlyFirebaseErrorMessage } from "@/lib/firebase-errors"
 
 export function LoginForm({
   className,
@@ -47,10 +48,11 @@ export function LoginForm({
       await triggerOnboarding()
 
       router.push("/dashboard")
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed"
-      toast.error(message)
-      setError(message)
+    } catch (err: any) {
+      const code = err.code || ""
+      const friendlyMessage = getFriendlyFirebaseErrorMessage(code)
+      toast.error(friendlyMessage)
+      setError(friendlyMessage)
       setLoading(false)
     }
   }
