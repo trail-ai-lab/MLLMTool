@@ -61,11 +61,18 @@ def save_source_metadata(user_id: str, meta: dict):
     session_id = meta.get("sessionId") or str(uuid.uuid4())
     ref = _db.collection("users").document(user_id).collection("sessions").document(session_id)
     meta["created_at"] = datetime.utcnow()
+    
+    # Ensure path is stored (if not already present)
+    if "path" not in meta:
+        raise ValueError("Missing path in metadata")
+    
     ref.set(meta)
     return {"message": "Metadata saved", "sessionId": session_id}
+
 
 
 def get_all_sources(user_id: str):
     ref = _db.collection("users").document(user_id).collection("sessions")
     docs = ref.order_by("created_at", direction="DESCENDING").stream()
     return [doc.to_dict() | {"sessionId": doc.id} for doc in docs]
+

@@ -46,6 +46,8 @@ export function AppSidebar({
   const mappedSources = sources.map((s) => ({
     name: s.name,
     url: `/dashboard/${s.sessionId}`,
+    path: s.path,
+    fileType: s.fileType,
     icon: s.fileType === "pdf" ? FileText : Music,
   }))
 

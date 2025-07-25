@@ -33,6 +33,7 @@ export function NavSources({
   sources: {
     name: string
     url: string
+    path: string
     fileType: "audio" | "pdf"
     icon: LucideIcon
   }[]

@@ -84,6 +84,7 @@ export async function getSources() {
       name: string
       fileType: "audio" | "pdf"
       url: string
+      path: string
     }[]
   >
 }
