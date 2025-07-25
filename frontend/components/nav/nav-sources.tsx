@@ -36,6 +36,7 @@ export function NavSources({
     path: string
     fileType: "audio" | "pdf"
     icon: LucideIcon
+    sessionId: string
   }[]
 }) {
   const { isMobile } = useSidebar()

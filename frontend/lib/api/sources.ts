@@ -7,7 +7,7 @@ export async function getUploadUrl(contentType: string = "application/pdf") {
   if (!user) throw new Error("User not authenticated")
   const token = await user.getIdToken()
 
-  const res = await fetch(`${API_BASE_URL}/api/v1/upload/upload-url`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/sources/upload-url`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -49,7 +49,7 @@ export async function saveFileMetadata(metadata: {
   if (!user) throw new Error("User not authenticated")
   const token = await user.getIdToken()
 
-  const res = await fetch(`${API_BASE_URL}/api/v1/upload/upload-metadata`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/sources/upload-metadata`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

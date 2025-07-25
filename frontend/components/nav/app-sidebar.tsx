@@ -49,6 +49,7 @@ export function AppSidebar({
     path: s.path,
     fileType: s.fileType,
     icon: s.fileType === "pdf" ? FileText : Music,
+    sessionId: s.sessionId,
   }))
 
   return (

@@ -1,7 +1,7 @@
 # app/api/v1/api.py
 
 from fastapi import APIRouter, Depends
-from app.api.v1.endpoints import highlight, health, onboard, sources, transcribe
+from app.api.v1.endpoints import health, onboard, sources, transcribe, transcript
 from app.core.firebase_auth import verify_firebase_token
 
 api_router = APIRouter()
@@ -11,9 +11,10 @@ api_router.include_router(health.router, prefix="/health", tags=["health"])
 
 # 🔐 Protected routes (require Firebase token)
 protected_router = APIRouter(dependencies=[Depends(verify_firebase_token)])
-protected_router.include_router(highlight.router, prefix="/highlight", tags=["highlight"])
 protected_router.include_router(onboard.router, prefix="/onboard", tags=["onboard"])
 protected_router.include_router(sources.router, prefix="/sources", tags=["sources"])
 protected_router.include_router(transcribe.router, prefix="/transcribe", tags=["transcribe"])
+protected_router.include_router(transcript.router, prefix="/transcript", tags=["transcript"]) 
+
 
 api_router.include_router(protected_router)

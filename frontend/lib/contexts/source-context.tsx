@@ -2,12 +2,14 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { transcribeSource } from "@/lib/api/transcribe"
+import { getTranscript } from "@/lib/api/transcript"
 
 type Source = {
   name: string
   url: string
   fileType: "audio" | "pdf"
   path: string
+  sessionId: string
 }
 
 type SourceContextType = {
@@ -42,8 +44,8 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         // Extract the GCS path (e.g., "user-id/file-id.webm") from the URL
         const path = selectedSource.path
 
-        const res = await transcribeSource(path)
-        setTranscript(res.transcript)
+        const res = await getTranscript(selectedSource.sessionId)
+        setTranscript(res.text)
       } catch (err) {
         console.error("Transcription failed:", err)
         setTranscript("Failed to transcribe.")

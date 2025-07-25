@@ -4,6 +4,9 @@ from app.core.firebase_client import db as _db
 import uuid
 import os
 
+from app.services.transcription_service import TranscriptionService
+
+
 GCS_AUDIO_BUCKET = os.getenv("GCS_AUDIO_BUCKET")
 
 def create_signed_upload_url(user_id: str, content_type: str):
@@ -60,13 +63,27 @@ def create_signed_download_url(file_path: str, user_id: str):
 def save_source_metadata(user_id: str, meta: dict):
     session_id = meta.get("sessionId") or str(uuid.uuid4())
     ref = _db.collection("users").document(user_id).collection("sessions").document(session_id)
+
     meta["created_at"] = datetime.utcnow()
-    
-    # Ensure path is stored (if not already present)
-    if "path" not in meta:
-        raise ValueError("Missing path in metadata")
-    
+
     ref.set(meta)
+
+    # ✅ Automatically transcribe if it's an audio file
+    if meta.get("fileType") == "audio":
+        try:
+            service = TranscriptionService()
+            transcript = service.transcribe(provider="groq", gcs_path=meta["path"], user_id=user_id)
+
+            ref.update({
+                "transcript": {
+                    "text": transcript["transcript"],
+                    "provider": transcript["provider"],
+                    "created_at": datetime.utcnow()
+                }
+            })
+        except Exception as e:
+            print(f"[warn] Failed to auto-transcribe: {e}")
+
     return {"message": "Metadata saved", "sessionId": session_id}
 
 
