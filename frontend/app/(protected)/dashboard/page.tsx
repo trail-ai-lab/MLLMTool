@@ -3,8 +3,8 @@
 "use client"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/sidebar-nav/app-sidebar"
-import { SiteHeader } from "@/components/site-header"
+import { AppSidebar } from "@/components/nav/app-sidebar"
+import { SiteHeader } from "@/components/layout/site-header"
 
 export default function Page() {
   return (

@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "sonner"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+import "@/styles/globals.css"
+import { ThemeProvider } from "@/components/layout/theme-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "SLAI",
+  title: "SLAI - TRAIL Lab",
   description: "Bridging Science and Language with AI",
+  icons: {
+    icon: "/favicon.ico",
+  },
 }
 
 export default function RootLayout({

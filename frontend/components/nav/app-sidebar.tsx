@@ -1,14 +1,15 @@
-// apps/frontend/src/components/app-sidebar.tsx
+// apps/frontend/components/app-sidebar.tsx
 
 "use client"
 
 import * as React from "react"
 import { useState } from "react"
-import { IconSettings, IconHelp, IconInnerShadowTop } from "@tabler/icons-react"
+import { IconSettings, IconHelp } from "@tabler/icons-react"
+import Image from "next/image"
 
-import { NavMain } from "@/components/sidebar-nav/nav-main"
-import { NavSecondary } from "@/components/sidebar-nav/nav-secondary"
-import { NavUser } from "@/components/sidebar-nav/nav-user"
+import { NavMain } from "@/components/nav/nav-main"
+import { NavSecondary } from "@/components/nav/nav-secondary"
+import { NavUser } from "@/components/nav/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -48,7 +49,14 @@ export function AppSidebar({
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <a href="#">
-                <IconInnerShadowTop className="!size-5" />
+                <Image
+                  src="/logo/trail-logo.svg"
+                  alt="TRAIL Logo"
+                  width={24}
+                  height={24}
+                  priority
+                  className="invert-0 dark:invert"
+                />
                 <span className="text-base font-semibold">SLAI</span>
               </a>
             </SidebarMenuButton>

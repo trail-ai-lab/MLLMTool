@@ -9,8 +9,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { AddSourceDialog } from "@/components/dialogs/add-source-dialog"
+import { useState } from "react"
 
 export function NavMain({}: {}) {
+  const [open, setOpen] = useState(false)
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -25,11 +28,15 @@ export function NavMain({}: {}) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="flex items-center gap-2">
-            <SidebarMenuButton tooltip="Add Source">
+            <SidebarMenuButton
+              tooltip="Add Source"
+              onClick={() => setOpen(true)}
+            >
               <IconUpload />
               <span>Add Source</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <AddSourceDialog open={open} onClose={() => setOpen(false)} />
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
