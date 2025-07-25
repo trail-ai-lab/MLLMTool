@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useSource } from "@/lib/contexts/source-context"
 
 export function NavSources({
   sources,
@@ -32,10 +33,12 @@ export function NavSources({
   sources: {
     name: string
     url: string
+    fileType: "audio" | "pdf"
     icon: LucideIcon
   }[]
 }) {
   const { isMobile } = useSidebar()
+  const { setSelectedSource } = useSource()
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -44,7 +47,13 @@ export function NavSources({
         {sources.map((item) => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild>
-              <a href={item.url}>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setSelectedSource(item)
+                }}
+              >
                 <item.icon />
                 <span>{item.name}</span>
               </a>
