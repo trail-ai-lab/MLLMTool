@@ -7,7 +7,7 @@ class UploadUrlRequest(BaseModel):
 class DownloadUrlRequest(BaseModel):
     path: str
 
-class FileMetadata(BaseModel):
+class SourceMetadata(BaseModel):
     sessionId: str
     path: str
     fileType: str  # "audio" or "pdf"

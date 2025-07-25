@@ -36,9 +36,10 @@ def create_signed_upload_url(user_id: str, content_type: str):
         "path": object_name
     }
 
+
 def create_signed_download_url(file_path: str, user_id: str):
     client = storage.Client()
-    bucket = client.bucket(GCS_AUDIO_BUCKET)
+    bucket = bucket = client.bucket(GCS_AUDIO_BUCKET)
 
     if not file_path.startswith(f"{user_id}/"):
         raise ValueError("Access denied")
@@ -55,9 +56,16 @@ def create_signed_download_url(file_path: str, user_id: str):
 
     return {"downloadUrl": url}
 
-def save_file_metadata(user_id: str, meta: dict):
+
+def save_source_metadata(user_id: str, meta: dict):
     session_id = meta.get("sessionId") or str(uuid.uuid4())
     ref = _db.collection("users").document(user_id).collection("sessions").document(session_id)
     meta["created_at"] = datetime.utcnow()
     ref.set(meta)
     return {"message": "Metadata saved", "sessionId": session_id}
+
+
+def get_all_sources(user_id: str):
+    ref = _db.collection("users").document(user_id).collection("sessions")
+    docs = ref.order_by("created_at", direction="DESCENDING").stream()
+    return [doc.to_dict() | {"sessionId": doc.id} for doc in docs]

@@ -13,7 +13,7 @@ import {
   getUploadUrl,
   uploadFileToGCS,
   saveFileMetadata,
-} from "@/lib/api/upload"
+} from "@/lib/api/sources"
 
 import { v4 as uuidv4 } from "uuid"
 
