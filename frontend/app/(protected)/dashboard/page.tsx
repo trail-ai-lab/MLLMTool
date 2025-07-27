@@ -11,6 +11,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { SourceProvider, useSource } from "@/lib/contexts/source-context"
+import SummaryView from "@/components/dashboard/summary-view"
+import { Separator } from "@/components/ui/separator"
 
 function MainContent() {
   const { selectedSource } = useSource()
@@ -31,7 +33,11 @@ function MainContent() {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60}>
-          <TranscriptView />
+          <div className="h-full overflow-y-auto p-4">
+            <SummaryView />
+            <Separator className="my-4" />
+            <TranscriptView />
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
