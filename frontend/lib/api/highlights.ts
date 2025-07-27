@@ -47,6 +47,7 @@ export async function getHighlightHistory(sourceId: string) {
     {
       prompt: string
       answer: string
+      highlightedSentence: string
       created_at: string
     }[]
   >

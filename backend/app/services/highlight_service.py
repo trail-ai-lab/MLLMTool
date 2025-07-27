@@ -60,6 +60,7 @@ def get_highlight_history(user_id: str, source_id: str, tool: str = DEFAULT_TOOL
         {
             "prompt": doc.to_dict()["prompt"],
             "answer": doc.to_dict()["answer"],
+            "highlightedSentence": doc.to_dict()["highlightedSentence"],
             "created_at": doc.to_dict()["created_at"].isoformat()
         }
         for doc in docs

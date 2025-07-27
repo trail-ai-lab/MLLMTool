@@ -1,3 +1,5 @@
+"use client"
+
 import React from "react"
 import { useSource } from "@/lib/contexts/source-context"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -8,15 +10,16 @@ export default function TranscriptView() {
   const { transcript, loadingTranscript, summary, loadingSummary } = useSource()
   const [highlighted, setHighlighted] = React.useState<string | null>(null)
 
-  // Listen for sentence highlight events
+  // ✅ Listen for highlight-sentence events from ChatView
   React.useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      setHighlighted(e.detail)
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent
+      setHighlighted(customEvent.detail)
     }
 
-    window.addEventListener("highlight-sentence", handler as EventListener)
+    window.addEventListener("highlight-sentence", handler)
     return () => {
-      window.removeEventListener("highlight-sentence", handler as EventListener)
+      window.removeEventListener("highlight-sentence", handler)
     }
   }, [])
 
@@ -26,7 +29,20 @@ export default function TranscriptView() {
 
     return sentences.map((sentence, i) => {
       const trimmed = sentence.trim()
-      const isMatch = highlighted && trimmed.includes(highlighted)
+
+      // More flexible matching - check both ways and normalize whitespace
+      let isMatch = false
+      if (highlighted) {
+        const normalizedSentence = trimmed.replace(/\s+/g, " ").toLowerCase()
+        const normalizedHighlight = highlighted
+          .replace(/\s+/g, " ")
+          .toLowerCase()
+
+        // Check if sentence contains highlight or highlight contains sentence
+        isMatch =
+          normalizedSentence.includes(normalizedHighlight) ||
+          normalizedHighlight.includes(normalizedSentence)
+      }
 
       return (
         <span key={i} className={isMatch ? "bg-yellow-200 font-semibold" : ""}>
@@ -53,18 +69,22 @@ export default function TranscriptView() {
 
       <Separator className="mb-4 mt-4" />
 
-      <h4 className="text-lg font-semibold mb-4">Transcript</h4>
-      <ScrollArea className="pr-2">
-        <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
-          {loadingTranscript ? (
-            <p>Transcribing audio...</p>
-          ) : transcript ? (
-            <p>{renderTranscript()}</p>
-          ) : (
-            <p>Transcript will be displayed here.</p>
-          )}
-        </div>
-      </ScrollArea>
+      <Card>
+        <CardContent>
+          <h4 className="text-lg font-semibold mb-4">Transcript</h4>
+          <ScrollArea className="pr-2">
+            <div className="space-y-4 text-sm leading-relaxed">
+              {loadingTranscript ? (
+                <p>Transcribing audio...</p>
+              ) : transcript ? (
+                <p>{renderTranscript()}</p>
+              ) : (
+                <p>Transcript will be displayed here.</p>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   )
 }

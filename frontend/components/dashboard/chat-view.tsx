@@ -11,16 +11,16 @@ import { Input } from "@/components/ui/input"
 import { useSource } from "@/lib/contexts/source-context"
 import { sendHighlightPrompt, getHighlightHistory } from "@/lib/api/highlights"
 
+type Message = {
+  role: "user" | "agent"
+  content: string
+  highlight?: string
+}
+
 export function ChatView() {
   const { selectedSource } = useSource()
-  const [messages, setMessages] = React.useState<
-    { role: "user" | "agent"; content: string }[]
-  >([
-    {
-      role: "agent",
-      content: "Hi, how can I help you today?",
-    },
-  ])
+  const [messages, setMessages] = React.useState<Message[]>([])
+
   const [input, setInput] = React.useState("")
   const inputLength = input.trim().length
   const [loading, setLoading] = React.useState(false)
@@ -33,9 +33,13 @@ export function ChatView() {
       try {
         const history = await getHighlightHistory(selectedSource.sourceId)
 
-        const formatted = history.flatMap((entry) => [
+        const formatted: Message[] = history.flatMap((entry) => [
           { role: "user" as const, content: entry.prompt },
-          { role: "agent" as const, content: entry.answer },
+          {
+            role: "agent" as const,
+            content: entry.answer,
+            highlight: entry.highlightedSentence,
+          },
         ])
 
         setMessages([
@@ -64,7 +68,11 @@ export function ChatView() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "agent", content: result.answer },
+        {
+          role: "agent",
+          content: result.answer,
+          highlight: result.highlightedSentence,
+        },
       ])
 
       window.dispatchEvent(
@@ -91,19 +99,52 @@ export function ChatView() {
       <Card>
         <CardContent>
           <div className="flex flex-col gap-4 py-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground ml-auto"
-                    : "bg-muted"
-                )}
-              >
-                {message.content}
-              </div>
-            ))}
+            {messages.map((message, index) => {
+              // Only agent messages should be clickable and have highlight data
+              const isClickable = message.role === "agent" && message.highlight
+
+              return (
+                <div
+                  key={index}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (isClickable) {
+                      window.dispatchEvent(
+                        new CustomEvent("highlight-sentence", {
+                          detail: message.highlight,
+                        })
+                      )
+                    }
+                  }}
+                  className={cn(
+                    "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm text-left transition focus:outline-none",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground ml-auto"
+                      : "bg-muted",
+                    isClickable
+                      ? "cursor-pointer hover:underline"
+                      : "cursor-default"
+                  )}
+                  role={isClickable ? "button" : "text"}
+                  tabIndex={isClickable ? 0 : -1}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      if (isClickable) {
+                        window.dispatchEvent(
+                          new CustomEvent("highlight-sentence", {
+                            detail: message.highlight,
+                          })
+                        )
+                      }
+                    }
+                  }}
+                >
+                  {message.content}
+                </div>
+              )
+            })}
           </div>
         </CardContent>
         <CardFooter>
