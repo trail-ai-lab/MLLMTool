@@ -106,3 +106,21 @@ export async function deleteSource(sourceId: string) {
 
   return res.json() as Promise<{ message: string; sourceId: string }>
 }
+
+export async function getDownloadUrl(path: string) {
+  const user = getAuth().currentUser
+  if (!user) throw new Error("User not authenticated")
+  const token = await user.getIdToken()
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/sources/download-url`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ path }),
+  })
+
+  if (!res.ok) throw new Error("Failed to get download URL")
+  return res.json() as Promise<{ downloadUrl: string }>
+}

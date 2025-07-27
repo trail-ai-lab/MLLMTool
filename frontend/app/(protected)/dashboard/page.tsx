@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/resizable"
 import { SourceProvider, useSource } from "@/lib/contexts/source-context"
 import SummaryView from "@/components/dashboard/summary-view"
+import AudioPlayback from "@/components/dashboard/audio-playback"
 import { Separator } from "@/components/ui/separator"
 
 function MainContent() {
@@ -29,7 +30,10 @@ function MainContent() {
     <div className="flex-1 min-h-0">
       <ResizablePanelGroup direction="horizontal">
         <ResizablePanel defaultSize={40}>
-          <ChatView />
+          <div className="h-full flex flex-col">
+            <AudioPlayback />
+            <ChatView />
+          </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60}>
