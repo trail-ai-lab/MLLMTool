@@ -4,6 +4,7 @@ import React from "react"
 import { useSource } from "@/lib/contexts/source-context"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 export default function TranscriptView() {
   const { transcript, loadingTranscript } = useSource()
@@ -41,7 +42,13 @@ export default function TranscriptView() {
       }
 
       return (
-        <span key={i} className={isMatch ? "bg-yellow-200 font-semibold" : ""}>
+        <span
+          key={i}
+          className={cn(
+            "rounded px-1",
+            isMatch && "bg-yellow-200 text-black font-semibold"
+          )}
+        >
           {trimmed}{" "}
         </span>
       )
