@@ -27,22 +27,11 @@ import {
 } from "@/components/ui/sidebar"
 import { useSource } from "@/lib/contexts/source-context"
 import { deleteSource } from "@/lib/api/sources"
-import { cn } from "@/lib/utils"
 
-export function NavSources({
-  sources,
-}: {
-  sources: {
-    name: string
-    url: string
-    path: string
-    fileType: "audio" | "pdf"
-    icon: LucideIcon
-    sourceId: string
-  }[]
-}) {
+export function NavSources() {
   const { isMobile } = useSidebar()
-  const { selectedSource, setSelectedSource } = useSource()
+  const { selectedSource, setSelectedSource, sources, loadingSources } =
+    useSource()
   const router = useRouter()
 
   const handleDelete = async (sourceId: string) => {
@@ -51,12 +40,14 @@ export function NavSources({
 
     try {
       await deleteSource(sourceId)
-      router.refresh?.() // Refresh the list after deletion
+      router.refresh?.()
     } catch (err) {
       console.error("Failed to delete source:", err)
       alert("Failed to delete source")
     }
   }
+
+  if (loadingSources) return null
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">

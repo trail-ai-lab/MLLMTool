@@ -1,17 +1,9 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react"
-import { transcribeSource } from "@/lib/api/transcribe"
 import { getTranscript } from "@/lib/api/transcript"
 import { getSummary } from "@/lib/api/summary"
-
-type Source = {
-  name: string
-  url: string
-  fileType: "audio" | "pdf"
-  path: string
-  sourceId: string
-}
+import { useSources, Source } from "@/lib/hooks/use-sources"
 
 type SourceContextType = {
   selectedSource: Source | null
@@ -20,19 +12,39 @@ type SourceContextType = {
   loadingTranscript: boolean
   summary: string | null
   loadingSummary: boolean
+  sources: Source[]
+  loadingSources: boolean
 }
 
 const SourceContext = createContext<SourceContextType | undefined>(undefined)
 
 export function SourceProvider({ children }: { children: React.ReactNode }) {
+  const { sources, loading: loadingSources } = useSources()
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
   const [transcript, setTranscript] = useState<string | null>(null)
   const [loadingTranscript, setLoadingTranscript] = useState(false)
   const [summary, setSummary] = useState<string | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
 
+  // Persist selectedSource
   useEffect(() => {
-    const fetchTranscriptAndSummary = async () => {
+    if (selectedSource?.sourceId) {
+      localStorage.setItem("selectedSourceId", selectedSource.sourceId)
+    }
+  }, [selectedSource])
+
+  // Restore selectedSource from localStorage
+  useEffect(() => {
+    const savedId = localStorage.getItem("selectedSourceId")
+    if (!selectedSource && savedId && sources.length > 0) {
+      const matched = sources.find((s) => s.sourceId === savedId)
+      if (matched) setSelectedSource(matched)
+    }
+  }, [sources, selectedSource])
+
+  // Fetch transcript & summary on selection
+  useEffect(() => {
+    const fetchData = async () => {
       if (!selectedSource || selectedSource.fileType !== "audio") {
         setTranscript(null)
         setSummary(null)
@@ -58,7 +70,7 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    fetchTranscriptAndSummary()
+    fetchData()
   }, [selectedSource])
 
   return (
@@ -70,6 +82,8 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         loadingTranscript,
         summary,
         loadingSummary,
+        sources,
+        loadingSources,
       }}
     >
       {children}
