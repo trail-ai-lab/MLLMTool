@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useEffect } from "react"
 import { ArrowUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useSource } from "@/lib/contexts/source-context"
-import { sendHighlightPrompt } from "@/lib/api/highlights"
+import { sendHighlightPrompt, getHighlightHistory } from "@/lib/api/highlights"
 
 export function ChatView() {
   const { selectedSource } = useSource()
@@ -24,6 +25,31 @@ export function ChatView() {
   const inputLength = input.trim().length
   const [loading, setLoading] = React.useState(false)
 
+  // ✅ Load chat history when selectedSource changes
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!selectedSource) return
+
+      try {
+        const history = await getHighlightHistory(selectedSource.sourceId)
+
+        const formatted = history.flatMap((entry) => [
+          { role: "user" as const, content: entry.prompt },
+          { role: "agent" as const, content: entry.answer },
+        ])
+
+        setMessages([
+          { role: "agent", content: "Hi, how can I help you today?" },
+          ...formatted,
+        ])
+      } catch (err) {
+        console.error("Failed to load chat history", err)
+      }
+    }
+
+    loadChatHistory()
+  }, [selectedSource])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!inputLength || !selectedSource || loading) return
@@ -36,13 +62,11 @@ export function ChatView() {
     try {
       const result = await sendHighlightPrompt(selectedSource.sourceId, prompt)
 
-      // Append agent's response
       setMessages((prev) => [
         ...prev,
         { role: "agent", content: result.answer },
       ])
 
-      // Dispatch highlight event
       window.dispatchEvent(
         new CustomEvent("highlight-sentence", {
           detail: result.highlightedSentence,

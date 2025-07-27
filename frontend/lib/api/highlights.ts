@@ -26,3 +26,28 @@ export async function sendHighlightPrompt(sourceId: string, prompt: string) {
     created_at: string
   }>
 }
+
+export async function getHighlightHistory(sourceId: string) {
+  const user = getAuth().currentUser
+  if (!user) throw new Error("User not authenticated")
+  const token = await user.getIdToken()
+
+  const res = await fetch(
+    `${API_BASE_URL}/api/v1/highlight/${sourceId}/history`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+
+  if (!res.ok) throw new Error("Failed to fetch highlight history")
+
+  return res.json() as Promise<
+    {
+      prompt: string
+      answer: string
+      created_at: string
+    }[]
+  >
+}

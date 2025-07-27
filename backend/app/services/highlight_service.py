@@ -44,3 +44,23 @@ def generate_highlight(user_id: str, source_id: str, prompt: str, provider: str 
         .add(highlight_doc)
 
     return highlight_doc
+
+def get_highlight_history(user_id: str, source_id: str, tool: str = DEFAULT_TOOL):
+    ref = (
+        _db.collection("tools")
+        .document(tool)
+        .collection("users")
+        .document(user_id)
+        .collection("sources")
+        .document(source_id)
+        .collection("highlights")
+    )
+    docs = ref.order_by("created_at").stream()
+    return [
+        {
+            "prompt": doc.to_dict()["prompt"],
+            "answer": doc.to_dict()["answer"],
+            "created_at": doc.to_dict()["created_at"].isoformat()
+        }
+        for doc in docs
+    ]
