@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useSource } from "@/lib/contexts/source-context"
 import { deleteSource } from "@/lib/api/sources"
+import { cn } from "@/lib/utils"
 
 export function NavSources({
   sources,
@@ -41,7 +42,7 @@ export function NavSources({
   }[]
 }) {
   const { isMobile } = useSidebar()
-  const { setSelectedSource } = useSource()
+  const { selectedSource, setSelectedSource } = useSource()
   const router = useRouter()
 
   const handleDelete = async (sourceId: string) => {
@@ -63,18 +64,23 @@ export function NavSources({
       <SidebarMenu>
         {sources.map((item) => (
           <SidebarMenuItem key={item.sourceId}>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton
+              asChild
+              isActive={selectedSource?.sourceId === item.sourceId}
+            >
               <a
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
                   setSelectedSource(item)
                 }}
+                className="flex items-center gap-2 w-full text-left justify-between px-2 py-1.5 rounded-md"
               >
-                <item.icon />
+                <item.icon className="size-4" />
                 <span>{item.name}</span>
               </a>
             </SidebarMenuButton>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
