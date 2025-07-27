@@ -1,4 +1,4 @@
-from app.pipelines.groq_whisper_pipeline import GroqWhisperPipeline
+from app.pipelines.groq_transcription_pipeline import GroqTranscriptionPipeline
 from app.pipelines.groq_summarization_pipeline import GroqSummarizationPipeline
 from app.pipelines.groq_highlight_pipeline import GroqHighlightPipeline
 
@@ -7,7 +7,7 @@ class ModelRegistry:
         self._registry = {}
 
         # 🧠 Register transcription pipeline
-        self.register("groq", GroqWhisperPipeline)
+        self.register("groq", GroqTranscriptionPipeline)
 
         # 🧠 Register summarization pipeline
         self.register("groq_summarizer", GroqSummarizationPipeline)

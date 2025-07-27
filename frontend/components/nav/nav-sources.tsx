@@ -74,7 +74,7 @@ export function NavSources({
                   e.preventDefault()
                   setSelectedSource(item)
                 }}
-                className="flex items-center gap-2 w-full text-left justify-between px-2 py-1.5 rounded-md"
+                className="flex items-center gap-2 w-full text-left justify-start px-2 py-1.5 rounded-md"
               >
                 <item.icon className="size-4" />
                 <span>{item.name}</span>
