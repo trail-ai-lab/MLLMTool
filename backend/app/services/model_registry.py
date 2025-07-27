@@ -1,11 +1,15 @@
-# backend/app/services/model_registry.py
-
 from app.pipelines.groq_whisper_pipeline import GroqWhisperPipeline
+from app.pipelines.groq_summarization_pipeline import GroqSummarizationPipeline
 
 class ModelRegistry:
     def __init__(self):
         self._registry = {}
+
+        # 🧠 Register transcription pipeline
         self.register("groq", GroqWhisperPipeline)
+
+        # 🧠 Register summarization pipeline
+        self.register("groq_summarizer", GroqSummarizationPipeline)
 
     def register(self, provider_name: str, pipeline_cls):
         self._registry[provider_name] = pipeline_cls

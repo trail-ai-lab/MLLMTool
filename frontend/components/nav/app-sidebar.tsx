@@ -45,11 +45,11 @@ export function AppSidebar({
   ]
   const mappedSources = sources.map((s) => ({
     name: s.name,
-    url: `/dashboard/${s.sessionId}`,
+    url: `/dashboard/${s.sourceId}`,
     path: s.path,
     fileType: s.fileType,
     icon: s.fileType === "pdf" ? FileText : Music,
-    sessionId: s.sessionId,
+    sourceId: s.sourceId,
   }))
 
   return (

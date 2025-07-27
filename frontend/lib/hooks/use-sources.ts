@@ -5,7 +5,7 @@ import { getSources } from "@/lib/api/sources"
 
 export interface Source {
   path: any
-  sessionId: string
+  sourceId: string
   name: string
   fileType: "audio" | "pdf"
   url: string

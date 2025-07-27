@@ -36,7 +36,7 @@ export async function uploadFileToGCS(uploadUrl: string, file: File) {
 
 // Save metadata for uploaded file in Firestore
 export async function saveFileMetadata(metadata: {
-  sessionId: string
+  sourceId: string
   path: string
   name: string
   fileType: string
@@ -60,7 +60,7 @@ export async function saveFileMetadata(metadata: {
 
   if (!res.ok) throw new Error("Failed to save metadata")
 
-  return res.json() as Promise<{ message: string; sessionId: string }>
+  return res.json() as Promise<{ message: string; sourceId: string }>
 }
 
 // Fetch all uploaded file metadata (audio + pdf) for the current user
@@ -80,11 +80,29 @@ export async function getSources() {
 
   return res.json() as Promise<
     {
-      sessionId: string
+      sourceId: string
       name: string
       fileType: "audio" | "pdf"
       url: string
       path: string
     }[]
   >
+}
+
+// Delete a specific source by sourceId
+export async function deleteSource(sourceId: string) {
+  const user = getAuth().currentUser
+  if (!user) throw new Error("User not authenticated")
+  const token = await user.getIdToken()
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/sources/${sourceId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!res.ok) throw new Error("Failed to delete source")
+
+  return res.json() as Promise<{ message: string; sourceId: string }>
 }

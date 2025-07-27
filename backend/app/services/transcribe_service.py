@@ -1,8 +1,8 @@
-# backend/app/services/transcription_service.py
+# backend/app/services/transcribe_service.py
 
 from app.services.model_registry import ModelRegistry
 
-class TranscriptionService:
+class TranscribeService:
     def __init__(self):
         self.registry = ModelRegistry()
 

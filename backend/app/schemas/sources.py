@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
 
 class UploadUrlRequest(BaseModel):
     contentType: str
@@ -8,11 +8,11 @@ class DownloadUrlRequest(BaseModel):
     path: str
 
 class SourceMetadata(BaseModel):
-    sessionId: str
+    sourceId: Optional[str]  # Optional, will generate if not provided
     path: str
-    fileType: str  # "audio" or "pdf"
     name: str
+    fileType: Literal["audio", "pdf"]
     size: int
     groupId: Optional[str] = None
     topic: Optional[str] = None
-    status: Optional[str] = "uploaded"
+    status: Optional[str] = None

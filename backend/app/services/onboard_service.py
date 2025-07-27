@@ -1,16 +1,24 @@
 from datetime import datetime
 from app.core.firebase_client import db as _db
 
-def ensure_user_onboarded(uid: str):
-    slai_user_ref = _db.collection("users").document(uid).collection("slai").document("meta")
-    user_doc = slai_user_ref.get()
+def ensure_user_onboarded(uid: str, tool: str = "slai"):
+    user_meta_ref = (
+        _db.collection("tools")
+        .document(tool)
+        .collection("users")
+        .document(uid)
+        .collection("metadata")
+        .document("profile")
+    )
 
-    if user_doc.exists:
-        return {"message": "Already onboarded"}
+    doc = user_meta_ref.get()
 
-    slai_user_ref.set({
+    if doc.exists:
+        return {"message": f"{tool.upper()} onboarding already completed"}
+
+    user_meta_ref.set({
         "onboardingComplete": True,
         "onboarded_at": datetime.utcnow()
     })
 
-    return {"message": "SLAI onboarding complete"}
+    return {"message": f"{tool.upper()} onboarding complete"}

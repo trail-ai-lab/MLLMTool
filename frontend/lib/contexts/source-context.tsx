@@ -3,13 +3,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { transcribeSource } from "@/lib/api/transcribe"
 import { getTranscript } from "@/lib/api/transcript"
+import { getSummary } from "@/lib/api/summary"
 
 type Source = {
   name: string
   url: string
   fileType: "audio" | "pdf"
   path: string
-  sessionId: string
+  sourceId: string
 }
 
 type SourceContextType = {
@@ -17,6 +18,8 @@ type SourceContextType = {
   setSelectedSource: (source: Source | null) => void
   transcript: string | null
   loadingTranscript: boolean
+  summary: string | null
+  loadingSummary: boolean
 }
 
 const SourceContext = createContext<SourceContextType | undefined>(undefined)
@@ -25,36 +28,37 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
   const [transcript, setTranscript] = useState<string | null>(null)
   const [loadingTranscript, setLoadingTranscript] = useState(false)
+  const [summary, setSummary] = useState<string | null>(null)
+  const [loadingSummary, setLoadingSummary] = useState(false)
 
   useEffect(() => {
-    const fetchTranscript = async () => {
-      console.log("Fetching Transcipt 1")
-      console.log("Selected Source:", JSON.stringify(selectedSource, null, 2))
-
+    const fetchTranscriptAndSummary = async () => {
       if (!selectedSource || selectedSource.fileType !== "audio") {
-        console.log("Fetching Transcipt 2")
         setTranscript(null)
+        setSummary(null)
         return
       }
 
       try {
         setLoadingTranscript(true)
-        console.log("Fetching Transcipt 3")
+        setLoadingSummary(true)
 
-        // Extract the GCS path (e.g., "user-id/file-id.webm") from the URL
-        const path = selectedSource.path
+        const transcriptRes = await getTranscript(selectedSource.sourceId)
+        setTranscript(transcriptRes.text)
 
-        const res = await getTranscript(selectedSource.sessionId)
-        setTranscript(res.text)
+        // const summaryRes = await getSummary(selectedSource.sourceId)
+        // setSummary(summaryRes.text)
       } catch (err) {
-        console.error("Transcription failed:", err)
-        setTranscript("Failed to transcribe.")
+        console.error("Failed to fetch transcript/summary:", err)
+        setTranscript("Failed to load transcript.")
+        setSummary("Failed to load summary.")
       } finally {
         setLoadingTranscript(false)
+        setLoadingSummary(false)
       }
     }
 
-    fetchTranscript()
+    fetchTranscriptAndSummary()
   }, [selectedSource])
 
   return (
@@ -64,6 +68,8 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         setSelectedSource,
         transcript,
         loadingTranscript,
+        summary,
+        loadingSummary,
       }}
     >
       {children}

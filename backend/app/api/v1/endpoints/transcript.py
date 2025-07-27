@@ -5,25 +5,25 @@ from app.services.transcript_service import get_transcript, update_transcript, d
 
 router = APIRouter()
 
-@router.get("/{session_id}")
-def get_transcript_api(session_id: str, user=Depends(verify_firebase_token)):
+@router.get("/{source_id}")
+def get_transcript_api(source_id: str, user=Depends(verify_firebase_token)):
     try:
-        return get_transcript(user["uid"], session_id)
+        return get_transcript(user["uid"], source_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.put("/{session_id}")
-def update_transcript_api(session_id: str, payload: TranscriptUpdateRequest, user=Depends(verify_firebase_token)):
+@router.put("/{source_id}")
+def update_transcript_api(source_id: str, payload: TranscriptUpdateRequest, user=Depends(verify_firebase_token)):
     try:
-        update_transcript(user["uid"], session_id, payload.text, payload.provider)
+        update_transcript(user["uid"], source_id, payload.text, payload.provider)
         return {"message": "Transcript updated"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.delete("/{session_id}")
-def delete_transcript_api(session_id: str, user=Depends(verify_firebase_token)):
+@router.delete("/{source_id}")
+def delete_transcript_api(source_id: str, user=Depends(verify_firebase_token)):
     try:
-        delete_transcript(user["uid"], session_id)
+        delete_transcript(user["uid"], source_id)
         return {"message": "Transcript deleted"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

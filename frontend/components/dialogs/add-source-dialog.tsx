@@ -14,7 +14,6 @@ import {
   uploadFileToGCS,
   saveFileMetadata,
 } from "@/lib/api/sources"
-
 import { v4 as uuidv4 } from "uuid"
 
 type AddSourceDialogProps = {
@@ -30,20 +29,21 @@ export function AddSourceDialog({ open, onClose }: AddSourceDialogProps) {
     if (!file) return
     setLoading(true)
 
-    const sessionId = uuidv4()
-    const groupId = "group-1" // TODO: replace with actual group ID from UI/context
-    const topic = "Group discussion" // TODO: replace with actual topic from UI/context
+    const sourceId = uuidv4()
+    const groupId = "group-1" // TODO: dynamically inject
+    const topic = "Group discussion" // TODO: dynamically inject
 
     try {
       const { uploadUrl, path } = await getUploadUrl(file.type)
-
       await uploadFileToGCS(uploadUrl, file)
 
+      const fileType = file.type.startsWith("audio") ? "audio" : "pdf"
+
       await saveFileMetadata({
-        sessionId,
+        sourceId,
         path,
         name: file.name,
-        fileType: file.type.includes("audio") ? "audio" : "pdf",
+        fileType,
         size: file.size,
         groupId,
         topic,
