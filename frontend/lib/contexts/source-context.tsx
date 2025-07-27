@@ -46,8 +46,8 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         const transcriptRes = await getTranscript(selectedSource.sourceId)
         setTranscript(transcriptRes.text)
 
-        // const summaryRes = await getSummary(selectedSource.sourceId)
-        // setSummary(summaryRes.text)
+        const summaryRes = await getSummary(selectedSource.sourceId)
+        setSummary(summaryRes.text)
       } catch (err) {
         console.error("Failed to fetch transcript/summary:", err)
         setTranscript("Failed to load transcript.")
