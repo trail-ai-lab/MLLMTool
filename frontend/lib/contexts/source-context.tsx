@@ -14,6 +14,8 @@ type SourceContextType = {
   loadingSummary: boolean
   sources: Source[]
   loadingSources: boolean
+  showRecorder: boolean
+  setShowRecorder: (value: boolean) => void
 }
 
 const SourceContext = createContext<SourceContextType | undefined>(undefined)
@@ -25,6 +27,7 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   const [loadingTranscript, setLoadingTranscript] = useState(false)
   const [summary, setSummary] = useState<string | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
+  const [showRecorder, setShowRecorder] = useState(false)
 
   // Persist selectedSource
   useEffect(() => {
@@ -36,11 +39,11 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   // Restore selectedSource from localStorage
   useEffect(() => {
     const savedId = localStorage.getItem("selectedSourceId")
-    if (!selectedSource && savedId && sources.length > 0) {
+    if (!selectedSource && !showRecorder && savedId && sources.length > 0) {
       const matched = sources.find((s) => s.sourceId === savedId)
       if (matched) setSelectedSource(matched)
     }
-  }, [sources, selectedSource])
+  }, [sources, selectedSource, showRecorder])
 
   // Fetch transcript & summary on selection
   useEffect(() => {
@@ -84,6 +87,8 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         loadingSummary,
         sources,
         loadingSources,
+        showRecorder,
+        setShowRecorder,
       }}
     >
       {children}

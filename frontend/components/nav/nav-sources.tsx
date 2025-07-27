@@ -30,8 +30,13 @@ import { deleteSource } from "@/lib/api/sources"
 
 export function NavSources() {
   const { isMobile } = useSidebar()
-  const { selectedSource, setSelectedSource, sources, loadingSources } =
-    useSource()
+  const {
+    selectedSource,
+    setSelectedSource,
+    setShowRecorder,
+    sources,
+    loadingSources,
+  } = useSource()
   const router = useRouter()
 
   const handleDelete = async (sourceId: string) => {
@@ -63,6 +68,7 @@ export function NavSources() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
+                  setShowRecorder(false)
                   setSelectedSource(item)
                 }}
                 className="flex items-center gap-2 w-full text-left justify-start px-2 py-1.5 rounded-md"

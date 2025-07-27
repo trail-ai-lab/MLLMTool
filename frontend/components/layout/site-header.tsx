@@ -7,7 +7,7 @@ import { ModeToggle } from "./model-toggle"
 import { useSource } from "@/lib/contexts/source-context"
 
 export function SiteHeader() {
-  const { selectedSource } = useSource()
+  const { selectedSource, showRecorder } = useSource()
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -19,7 +19,11 @@ export function SiteHeader() {
         />
         <div className="flex items-center gap-2">
           <h1 className="text-base font-medium">
-            {selectedSource ? selectedSource.name : "No source selected"}
+            {showRecorder
+              ? "Record Audio"
+              : selectedSource
+              ? selectedSource.name
+              : "No source selected"}
           </h1>
         </div>
         <div className="ml-auto flex items-center gap-2">

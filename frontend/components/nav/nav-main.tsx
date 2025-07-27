@@ -10,12 +10,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { AddSourceDialog } from "@/components/dialogs/add-source-dialog"
-import { RecordAudioDialog } from "@/components/dialogs/record-audio-dialog"
 import { useState } from "react"
+import { useSource } from "@/lib/contexts/source-context"
 
 export function NavMain({}: {}) {
   const [openUpload, setOpenUpload] = useState(false)
   const [openRecord, setOpenRecord] = useState(false)
+  const { setSelectedSource, setShowRecorder } = useSource()
 
   return (
     <SidebarGroup>
@@ -24,7 +25,10 @@ export function NavMain({}: {}) {
           <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton
               tooltip="Record Audio"
-              onClick={() => setOpenRecord(true)}
+              onClick={() => {
+                setSelectedSource(null)
+                setShowRecorder(true)
+              }}
               className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
             >
               <IconPlayerRecord stroke={2} />
@@ -44,10 +48,6 @@ export function NavMain({}: {}) {
             open={openUpload}
             onClose={() => setOpenUpload(false)}
           />
-          <RecordAudioDialog
-            open={openRecord}
-            onClose={() => setOpenRecord(false)}
-          />{" "}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
