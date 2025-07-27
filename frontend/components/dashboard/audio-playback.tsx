@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react"
 import { getDownloadUrl } from "@/lib/api/sources"
 import { useSource } from "@/lib/contexts/source-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AudioPlayback() {
   const { selectedSource } = useSource()
@@ -36,9 +37,8 @@ export default function AudioPlayback() {
 
   return (
     <div className="p-4 border-b">
-      {loading && (
-        <p className="text-sm text-muted-foreground">Loading audio...</p>
-      )}
+      {loading && <Skeleton className="w-full h-[48px] rounded-lg" />}
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {audioUrl && (
         <audio
