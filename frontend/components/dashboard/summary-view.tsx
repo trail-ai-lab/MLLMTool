@@ -7,7 +7,7 @@ export default function SummaryView() {
   const { summary, loadingSummary } = useSource()
 
   return (
-    <Card>
+    <Card className="m-4">
       <CardContent>
         <h4 className="text-lg font-semibold mb-4">Summary</h4>
         {loadingSummary ? (

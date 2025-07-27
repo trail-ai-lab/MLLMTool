@@ -56,7 +56,7 @@ export default function TranscriptView() {
   }
 
   return (
-    <Card>
+    <Card className="m-4">
       <CardContent>
         <h4 className="text-lg font-semibold mb-4">Transcript</h4>
         <ScrollArea className="pr-2">
