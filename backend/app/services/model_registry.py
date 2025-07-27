@@ -1,5 +1,6 @@
 from app.pipelines.groq_whisper_pipeline import GroqWhisperPipeline
 from app.pipelines.groq_summarization_pipeline import GroqSummarizationPipeline
+from app.pipelines.groq_highlight_pipeline import GroqHighlightPipeline
 
 class ModelRegistry:
     def __init__(self):
@@ -10,6 +11,9 @@ class ModelRegistry:
 
         # 🧠 Register summarization pipeline
         self.register("groq_summarizer", GroqSummarizationPipeline)
+
+        # 🧠 Register highlight pipeline
+        self.register("groq_highlight", GroqHighlightPipeline)
 
     def register(self, provider_name: str, pipeline_cls):
         self._registry[provider_name] = pipeline_cls
