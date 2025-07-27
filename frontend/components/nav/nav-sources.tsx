@@ -2,12 +2,12 @@
 
 import {
   Download,
-  Forward,
   MoreHorizontal,
   Trash2,
   Pencil,
   type LucideIcon,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import {
   DropdownMenu,
@@ -26,6 +26,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useSource } from "@/lib/contexts/source-context"
+import { deleteSource } from "@/lib/api/sources"
 
 export function NavSources({
   sources,
@@ -41,13 +42,27 @@ export function NavSources({
 }) {
   const { isMobile } = useSidebar()
   const { setSelectedSource } = useSource()
+  const router = useRouter()
+
+  const handleDelete = async (sourceId: string) => {
+    const confirmed = confirm("Are you sure you want to delete this source?")
+    if (!confirmed) return
+
+    try {
+      await deleteSource(sourceId)
+      router.refresh?.() // Refresh the list after deletion
+    } catch (err) {
+      console.error("Failed to delete source:", err)
+      alert("Failed to delete source")
+    }
+  }
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Sources</SidebarGroupLabel>
       <SidebarMenu>
         {sources.map((item) => (
-          <SidebarMenuItem key={item.name}>
+          <SidebarMenuItem key={item.sourceId}>
             <SidebarMenuButton asChild>
               <a
                 href="#"
@@ -81,7 +96,7 @@ export function NavSources({
                   <span>Edit</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDelete(item.sourceId)}>
                   <Trash2 className="text-muted-foreground" />
                   <span>Delete</span>
                 </DropdownMenuItem>
