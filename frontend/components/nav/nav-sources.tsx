@@ -36,8 +36,8 @@ export function NavSources() {
     setShowRecorder,
     sources,
     loadingSources,
+    removeSource,
   } = useSource()
-  const router = useRouter()
 
   const handleDelete = async (sourceId: string) => {
     const confirmed = confirm("Are you sure you want to delete this source?")
@@ -45,7 +45,12 @@ export function NavSources() {
 
     try {
       await deleteSource(sourceId)
-      router.refresh?.()
+      // Remove from local state immediately
+      removeSource(sourceId)
+      // Clear selected source if it was the deleted one
+      if (selectedSource?.sourceId === sourceId) {
+        setSelectedSource(null)
+      }
     } catch (err) {
       console.error("Failed to delete source:", err)
       alert("Failed to delete source")

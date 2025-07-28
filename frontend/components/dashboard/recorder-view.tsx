@@ -27,7 +27,7 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const { setShowRecorder, setSelectedSource } = useSource()
+  const { setShowRecorder, setSelectedSource, addSource } = useSource()
 
   useEffect(() => {
     return () => {
@@ -119,12 +119,18 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
 
       toast.success("Recording uploaded successfully")
 
-      setSelectedSource({
+      const newSource = {
         sourceId,
         path,
         name: file.name,
-        fileType: "audio",
+        fileType: "audio" as const,
         url: "",
+      }
+
+      // Add to sources list and select it
+      addSource(newSource)
+      setSelectedSource({
+        ...newSource,
         icon: Mic,
       })
 

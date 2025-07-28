@@ -16,12 +16,15 @@ type SourceContextType = {
   loadingSources: boolean
   showRecorder: boolean
   setShowRecorder: (value: boolean) => void
+  refreshSources: () => void
+  addSource: (source: Omit<Source, "icon">) => void
+  removeSource: (sourceId: string) => void
 }
 
 const SourceContext = createContext<SourceContextType | undefined>(undefined)
 
 export function SourceProvider({ children }: { children: React.ReactNode }) {
-  const { sources, loading: loadingSources } = useSources()
+  const { sources, loading: loadingSources, refreshSources, addSource, removeSource } = useSources()
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
   const [transcript, setTranscript] = useState<string | null>(null)
   const [loadingTranscript, setLoadingTranscript] = useState(false)
@@ -44,6 +47,14 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
       if (matched) setSelectedSource(matched)
     }
   }, [sources, selectedSource, showRecorder])
+
+  // Clear selected source if it gets deleted
+  useEffect(() => {
+    if (selectedSource && !sources.find(s => s.sourceId === selectedSource.sourceId)) {
+      setSelectedSource(null)
+      localStorage.removeItem("selectedSourceId")
+    }
+  }, [sources, selectedSource])
 
   // Fetch transcript & summary on selection
   useEffect(() => {
@@ -89,6 +100,9 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         loadingSources,
         showRecorder,
         setShowRecorder,
+        refreshSources,
+        addSource,
+        removeSource,
       }}
     >
       {children}
