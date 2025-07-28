@@ -23,12 +23,9 @@ export function AddSourceView() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [customName, setCustomName] = useState("")
 
-  const {
-    addSource,
-    setSelectedSource,
-    sources,
-  } = useSource()
+  const { addSource, setSelectedSource, sources } = useSource()
   const router = useRouter()
 
   const handleUpload = async () => {
@@ -58,7 +55,7 @@ export function AddSourceView() {
       await saveFileMetadata({
         sourceId,
         path,
-        name: file.name,
+        name: customName.trim() || file.name,
         fileType,
         size: file.size,
         groupId,
@@ -69,7 +66,7 @@ export function AddSourceView() {
       const newSource = {
         sourceId,
         path,
-        name: file.name,
+        name: customName.trim() || file.name,
         fileType,
         url: "",
         icon: fileType === "audio" ? Mic : FileText,
@@ -127,20 +124,44 @@ export function AddSourceView() {
             <Label htmlFor="file" className="text-sm font-medium">
               File
             </Label>
+
+            {/* Hidden file input */}
             <Input
               id="file"
               type="file"
               accept=".webm,.mp3,.wav,.pdf"
               ref={fileInputRef}
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+              onChange={(e) => {
+                const selected = e.target.files?.[0]
+                if (selected) {
+                  const nameWithoutExtension = selected.name.replace(
+                    /\.[^/.]+$/,
+                    ""
+                  )
+                  setFile(selected)
+                  setCustomName(nameWithoutExtension)
+                }
+              }}
             />
 
-            {/* Always show selected file name */}
-            {file && (
-              <p className="text-sm text-gray-600 mt-2">
-                Selected: <strong>{file.name}</strong> (
-                {Math.round(file.size / 1024)} KB)
-              </p>
+            {/* Show file rename input or "No file selected" */}
+            {file ? (
+              <>
+                <Label htmlFor="filename">Rename file (optional)</Label>
+                <Input
+                  id="filename"
+                  type="text"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  Original: <strong>{file.name}</strong> (
+                  {Math.round(file.size / 1024)} KB)
+                </p>
+              </>
+            ) : (
+              <p className="text-gray-500">No file selected</p>
             )}
           </div>
         </CardContent>
