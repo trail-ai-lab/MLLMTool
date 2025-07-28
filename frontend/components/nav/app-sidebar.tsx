@@ -85,7 +85,7 @@ export function AppSidebar({
             ))}
           </div>
         ) : (
-          <NavSources sources={mappedSources} />
+          <NavSources />
         )}
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>

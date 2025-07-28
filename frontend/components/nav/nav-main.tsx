@@ -1,4 +1,6 @@
 import { IconUpload, IconPlayerRecord } from "@tabler/icons-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -6,10 +8,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useSource } from "@/lib/contexts/source-context"
 
 export function NavMain() {
-  const { setSelectedSource, setShowRecorder, setShowAddSource } = useSource()
+  const pathname = usePathname()
 
   return (
     <SidebarGroup>
@@ -17,32 +18,28 @@ export function NavMain() {
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton
+              asChild
               tooltip="Record Audio"
-              onClick={() => {
-                setSelectedSource(null)
-                setShowRecorder(true)
-                setShowAddSource(false)
-                localStorage.removeItem("selectedSourceId")
-              }}
+              isActive={pathname === "/recorder"}
               className="bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/90 min-w-8 duration-200 ease-linear"
             >
-              <IconPlayerRecord stroke={2} />
-              <span>Record Audio</span>
+              <Link href="/recorder">
+                <IconPlayerRecord stroke={2} />
+                <span>Record Audio</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
 
           <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton
+              asChild
               tooltip="Add Source"
-              onClick={() => {
-                setSelectedSource(null)
-                setShowRecorder(false)
-                setShowAddSource(true)
-                localStorage.removeItem("selectedSourceId")
-              }}
+              isActive={pathname === "/add-source"}
             >
-              <IconUpload />
-              <span>Add Source</span>
+              <Link href="/add-source">
+                <IconUpload />
+                <span>Add Source</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

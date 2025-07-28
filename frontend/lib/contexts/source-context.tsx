@@ -14,13 +14,9 @@ type SourceContextType = {
   loadingSummary: boolean
   sources: Source[]
   loadingSources: boolean
-  showRecorder: boolean
-  setShowRecorder: (value: boolean) => void
   refreshSources: () => void
   addSource: (source: Omit<Source, "icon">) => void
   removeSource: (sourceId: string) => void
-  showAddSource: boolean
-  setShowAddSource: (v: boolean) => void
 }
 
 const SourceContext = createContext<SourceContextType | undefined>(undefined)
@@ -38,30 +34,6 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   const [loadingTranscript, setLoadingTranscript] = useState(false)
   const [summary, setSummary] = useState<string | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
-  const [showRecorder, setShowRecorder] = useState(false)
-  const [showAddSource, setShowAddSource] = useState(false)
-
-  // Persist selectedSource
-  useEffect(() => {
-    if (selectedSource?.sourceId) {
-      localStorage.setItem("selectedSourceId", selectedSource.sourceId)
-    }
-  }, [selectedSource])
-
-  // Restore selectedSource from localStorage
-  useEffect(() => {
-    const savedId = localStorage.getItem("selectedSourceId")
-    if (
-      !selectedSource &&
-      !showRecorder &&
-      !showAddSource &&
-      savedId &&
-      sources.length > 0
-    ) {
-      const matched = sources.find((s) => s.sourceId === savedId)
-      if (matched) setSelectedSource(matched)
-    }
-  }, [sources, selectedSource, showRecorder])
 
   // Clear selected source if it gets deleted
   useEffect(() => {
@@ -70,19 +42,13 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
       !sources.find((s) => s.sourceId === selectedSource.sourceId)
     ) {
       setSelectedSource(null)
-      localStorage.removeItem("selectedSourceId")
     }
   }, [sources, selectedSource])
 
   // Fetch transcript & summary on selection
   useEffect(() => {
     const fetchData = async () => {
-      if (
-        !selectedSource ||
-        selectedSource.fileType !== "audio" ||
-        showRecorder ||
-        showAddSource
-      ) {
+      if (!selectedSource || selectedSource.fileType !== "audio") {
         setTranscript(null)
         setSummary(null)
         return
@@ -121,13 +87,9 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         loadingSummary,
         sources,
         loadingSources,
-        showRecorder,
-        setShowRecorder,
         refreshSources,
         addSource,
         removeSource,
-        showAddSource,
-        setShowAddSource,
       }}
     >
       {children}

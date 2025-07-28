@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Mic, StopCircle, UploadCloud, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { v4 as uuidv4 } from "uuid"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -27,7 +28,8 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const { setShowRecorder, setSelectedSource, addSource, sources } = useSource()
+  const { setSelectedSource, addSource, sources } = useSource()
+  const router = useRouter()
 
   useEffect(() => {
     return () => {
@@ -151,7 +153,8 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
         icon: Mic,
       })
 
-      setShowRecorder(false)
+      // Navigate to the new source
+      router.push(`/source/${sourceId}`)
       onComplete?.()
       setAudioBlob(null)
       setTitle("")

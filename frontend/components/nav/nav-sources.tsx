@@ -7,7 +7,8 @@ import {
   Pencil,
   type LucideIcon,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 
 import {
   DropdownMenu,
@@ -30,11 +31,9 @@ import { deleteSource } from "@/lib/api/sources"
 
 export function NavSources() {
   const { isMobile } = useSidebar()
+  const router = useRouter()
+  const pathname = usePathname()
   const {
-    selectedSource,
-    setSelectedSource,
-    setShowRecorder,
-    setShowAddSource,
     sources,
     loadingSources,
     removeSource,
@@ -48,9 +47,9 @@ export function NavSources() {
       await deleteSource(sourceId)
       // Remove from local state immediately
       removeSource(sourceId)
-      // Clear selected source if it was the deleted one
-      if (selectedSource?.sourceId === sourceId) {
-        setSelectedSource(null)
+      // If we're currently viewing the deleted source, redirect to recorder
+      if (pathname === `/source/${sourceId}`) {
+        router.push("/recorder")
       }
     } catch (err) {
       console.error("Failed to delete source:", err)
@@ -68,21 +67,15 @@ export function NavSources() {
           <SidebarMenuItem key={item.sourceId}>
             <SidebarMenuButton
               asChild
-              isActive={selectedSource?.sourceId === item.sourceId}
+              isActive={pathname === `/source/${item.sourceId}`}
             >
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setShowRecorder(false)
-                  setShowAddSource(false)
-                  setSelectedSource(item)
-                }}
+              <Link
+                href={`/source/${item.sourceId}`}
                 className="flex items-center gap-2 w-full text-left justify-start px-2 py-1.5 rounded-md"
               >
                 <item.icon className="size-4" />
                 <span>{item.name}</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
 
             <DropdownMenu>

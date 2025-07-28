@@ -5,9 +5,18 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ModeToggle } from "./model-toggle"
 import { useSource } from "@/lib/contexts/source-context"
+import { usePathname } from "next/navigation"
 
 export function SiteHeader() {
-  const { selectedSource, showRecorder, showAddSource } = useSource()
+  const { selectedSource } = useSource()
+  const pathname = usePathname()
+
+  const getTitle = () => {
+    if (pathname === "/recorder") return "Record Audio"
+    if (pathname === "/add-source") return "Add Source"
+    if (pathname.startsWith("/source/") && selectedSource) return selectedSource.name
+    return "Dashboard"
+  }
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -19,13 +28,7 @@ export function SiteHeader() {
         />
         <div className="flex items-center gap-2">
           <h1 className="text-base font-medium">
-            {showRecorder
-              ? "Record Audio"
-              : showAddSource
-              ? "Add Source"
-              : selectedSource
-              ? selectedSource.name
-              : "No source selected"}
+            {getTitle()}
           </h1>
         </div>
         <div className="ml-auto flex items-center gap-2">

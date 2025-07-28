@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { v4 as uuidv4 } from "uuid"
 import { Mic, FileText, FileIcon } from "lucide-react"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,10 +27,9 @@ export function AddSourceView() {
   const {
     addSource,
     setSelectedSource,
-    setShowRecorder,
-    setShowAddSource,
     sources,
   } = useSource()
+  const router = useRouter()
 
   const handleUpload = async () => {
     if (!file) return
@@ -79,8 +79,8 @@ export function AddSourceView() {
       setSelectedSource(newSource)
       toast.success("File uploaded successfully")
       setFile(null)
-      setShowRecorder(false)
-      setShowAddSource(false)
+      // Navigate to the new source
+      router.push(`/source/${sourceId}`)
     } catch (err: any) {
       console.error(err)
       toast.error("Upload failed: " + err.message)
