@@ -7,7 +7,7 @@ import { ModeToggle } from "./model-toggle"
 import { useSource } from "@/lib/contexts/source-context"
 
 export function SiteHeader() {
-  const { selectedSource, showRecorder } = useSource()
+  const { selectedSource, showRecorder, showAddSource } = useSource()
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -21,6 +21,8 @@ export function SiteHeader() {
           <h1 className="text-base font-medium">
             {showRecorder
               ? "Record Audio"
+              : showAddSource
+              ? "Add Source"
               : selectedSource
               ? selectedSource.name
               : "No source selected"}

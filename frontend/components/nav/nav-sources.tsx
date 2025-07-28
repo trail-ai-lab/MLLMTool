@@ -34,6 +34,7 @@ export function NavSources() {
     selectedSource,
     setSelectedSource,
     setShowRecorder,
+    setShowAddSource,
     sources,
     loadingSources,
     removeSource,
@@ -74,6 +75,7 @@ export function NavSources() {
                 onClick={(e) => {
                   e.preventDefault()
                   setShowRecorder(false)
+                  setShowAddSource(false)
                   setSelectedSource(item)
                 }}
                 className="flex items-center gap-2 w-full text-left justify-start px-2 py-1.5 rounded-md"

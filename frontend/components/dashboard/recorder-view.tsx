@@ -155,9 +155,8 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <Card className="w-full max-w-xl bg-muted/40 border border-border shadow-md min-h-[500px] flex flex-col">
+      <Card className="w-full max-w-xl bg-muted/40  bg-transparent shadow-md min-h-[500px] flex flex-col">
         <CardHeader className="flex flex-col items-center justify-center gap-1">
-          <h2 className="text-lg font-semibold text-center">Audio Recorder</h2>
           <span
             className={`text-sm ${
               isRecording
