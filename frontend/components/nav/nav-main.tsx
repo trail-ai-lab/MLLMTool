@@ -22,6 +22,7 @@ export function NavMain() {
                 setSelectedSource(null)
                 setShowRecorder(true)
                 setShowAddSource(false)
+                localStorage.removeItem("selectedSourceId")
               }}
               className="bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/90 min-w-8 duration-200 ease-linear"
             >
@@ -37,6 +38,7 @@ export function NavMain() {
                 setSelectedSource(null)
                 setShowRecorder(false)
                 setShowAddSource(true)
+                localStorage.removeItem("selectedSourceId")
               }}
             >
               <IconUpload />

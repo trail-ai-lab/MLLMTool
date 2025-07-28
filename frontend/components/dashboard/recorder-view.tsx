@@ -27,7 +27,7 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const { setShowRecorder, setSelectedSource, addSource } = useSource()
+  const { setShowRecorder, setSelectedSource, addSource, sources } = useSource()
 
   useEffect(() => {
     return () => {
@@ -37,6 +37,13 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!audioBlob || !audioRef.current) return
+    const url = URL.createObjectURL(audioBlob)
+    audioRef.current.src = url
+    audioRef.current.load()
+  }, [audioBlob])
 
   const startRecording = async () => {
     try {
@@ -53,18 +60,19 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
       recorder.onstop = () => {
         const blob = new Blob(audioChunks.current, { type: mimeType })
         setAudioBlob(blob)
-        if (audioRef.current) {
-          audioRef.current.src = URL.createObjectURL(blob)
-        }
       }
 
-      recorder.start()
       mediaRecorderRef.current = recorder
       setElapsedTime(0)
-      timerRef.current = setInterval(() => {
-        setElapsedTime((prev) => prev + 1)
-      }, 1000)
       setIsRecording(true)
+
+      // ✅ Warm-up delay to ensure mic is ready
+      setTimeout(() => {
+        recorder.start()
+        timerRef.current = setInterval(() => {
+          setElapsedTime((prev) => prev + 1)
+        }, 1000)
+      }, 400) // 300ms warm-up (can adjust to 500ms if needed)
     } catch (err) {
       console.error("Microphone access error:", err)
       toast.error("Microphone permission denied or not available.")
@@ -94,9 +102,19 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
 
   const uploadRecording = async () => {
     if (!audioBlob || !title.trim()) return
-    setLoading(true)
 
-    const file = new File([audioBlob], `${title.trim()}.webm`, {
+    const trimmedName = `${title.trim()}.webm`
+
+    const isDuplicate = sources.some((source) => source.name === trimmedName)
+    if (isDuplicate) {
+      toast.error(
+        "A recording with this title already exists. Please choose a different title."
+      )
+      return
+    }
+
+    setLoading(true)
+    const file = new File([audioBlob], trimmedName, {
       type: "audio/webm",
     })
     const sourceId = uuidv4()
@@ -127,7 +145,6 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
         url: "",
       }
 
-      // Add to sources list and select it
       addSource(newSource)
       setSelectedSource({
         ...newSource,
@@ -166,6 +183,8 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
           >
             {isRecording
               ? "Recording..."
+              : audioBlob
+              ? "Recording complete. Upload to generate transcript."
               : "Press the button to start recording"}
           </span>
         </CardHeader>
@@ -203,8 +222,15 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
               </div>
             </div>
           ) : (
-            <div className="w-full space-y-4">
-              <audio ref={audioRef} controls className="w-full rounded-md" />
+            <div className="w-full space-y-8">
+              <audio
+                ref={audioRef}
+                controls
+                className="w-full rounded-md"
+                onError={() =>
+                  toast.error("Failed to load recorded audio preview.")
+                }
+              />
               <div className="space-y-2">
                 <Label htmlFor="title">Recording Title</Label>
                 <Input
