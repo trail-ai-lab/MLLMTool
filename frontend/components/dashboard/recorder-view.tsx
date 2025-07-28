@@ -1,13 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import {
-  Mic,
-  StopCircle,
-  UploadCloud,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react"
+import { Mic, StopCircle, UploadCloud, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { v4 as uuidv4 } from "uuid"
 import { Button } from "@/components/ui/button"
@@ -26,9 +20,13 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [title, setTitle] = useState("")
   const [loading, setLoading] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunks = useRef<BlobPart[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
   const { setShowRecorder, setSelectedSource } = useSource()
 
   useEffect(() => {
@@ -36,6 +34,7 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
       mediaRecorderRef.current?.stream
         .getTracks()
         .forEach((track) => track.stop())
+      if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [])
 
@@ -61,6 +60,10 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
 
       recorder.start()
       mediaRecorderRef.current = recorder
+      setElapsedTime(0)
+      timerRef.current = setInterval(() => {
+        setElapsedTime((prev) => prev + 1)
+      }, 1000)
       setIsRecording(true)
     } catch (err) {
       console.error("Microphone access error:", err)
@@ -69,10 +72,23 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
   }
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop()
-    mediaRecorderRef.current?.stream
-      .getTracks()
-      .forEach((track) => track.stop())
+    console.log("Stop button clicked")
+
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current.stream
+        .getTracks()
+        .forEach((track) => track.stop())
+    }
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+
     setIsRecording(false)
   }
 
@@ -108,7 +124,7 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
         path,
         name: file.name,
         fileType: "audio",
-        url: "", // optional: use downloadUrl
+        url: "",
         icon: Mic,
       })
 
@@ -116,6 +132,7 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
       onComplete?.()
       setAudioBlob(null)
       setTitle("")
+      setElapsedTime(0)
     } catch (err: any) {
       console.error(err)
       toast.error("Upload failed: " + err.message)
@@ -124,79 +141,112 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
     }
   }
 
+  const formatElapsedTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+  }
+
   return (
-    <Card className="w-full max-w-xl mx-auto bg-muted/40 border border-border shadow-md">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <h2 className="text-lg font-medium">Audio Recorder</h2>
-        {isRecording && (
-          <span className="text-sm text-destructive animate-pulse">
-            Recording...
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <Card className="w-full max-w-xl bg-muted/40 border border-border shadow-md min-h-[500px] flex flex-col">
+        <CardHeader className="flex flex-col items-center justify-center gap-1">
+          <h2 className="text-lg font-semibold text-center">Audio Recorder</h2>
+          <span
+            className={`text-sm ${
+              isRecording
+                ? "text-destructive animate-pulse"
+                : "text-muted-foreground"
+            }`}
+          >
+            {isRecording
+              ? "Recording..."
+              : "Press the button to start recording"}
           </span>
-        )}
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        {!audioBlob ? (
-          <div className="flex items-center justify-center gap-4">
-            {isRecording ? (
-              <Button variant="destructive" size="lg" onClick={stopRecording}>
-                <StopCircle className="mr-2 h-5 w-5" />
-                Stop
-              </Button>
-            ) : (
-              <Button variant="default" size="lg" onClick={startRecording}>
-                <Mic className="mr-2 h-5 w-5" />
-                Start Recording
-              </Button>
-            )}
-          </div>
-        ) : (
-          <>
-            <audio ref={audioRef} controls className="w-full rounded-md" />
-            <div className="space-y-2">
-              <Label htmlFor="title">Recording Title</Label>
-              <Input
-                id="title"
-                placeholder="Enter a title for your recording"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
+        <CardContent className="flex-1 flex flex-col items-center justify-center">
+          {!audioBlob ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-4xl font-bold text-card-foreground pb-8">
+                {formatElapsedTime(elapsedTime)}
+              </div>
+
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    isRecording ? stopRecording() : startRecording()
+                  }}
+                  className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition 
+  ${
+    isRecording
+      ? "bg-destructive text-white"
+      : "bg-white text-black hover:ring-2 hover:ring-muted-foreground/20"
+  }
+`}
+                >
+                  {isRecording ? (
+                    <StopCircle className="w-8 h-8" />
+                  ) : (
+                    <Mic className="w-8 h-8" />
+                  )}
+                </button>
+
+                {isRecording && (
+                  <span className="absolute -inset-1 animate-ping rounded-full border-2 border-destructive opacity-75 pointer-events-none"></span>
+                )}
+              </div>
             </div>
-          </>
-        )}
-      </CardContent>
+          ) : (
+            <div className="w-full space-y-4">
+              <audio ref={audioRef} controls className="w-full rounded-md" />
+              <div className="space-y-2">
+                <Label htmlFor="title">Recording Title</Label>
+                <Input
+                  id="title"
+                  placeholder="Enter a title for your recording"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
 
-      {audioBlob && (
-        <CardFooter className="flex flex-col gap-4">
-          <Button
-            onClick={uploadRecording}
-            disabled={!title.trim() || loading}
-            className="w-full"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Upload Recording
-              </>
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-muted-foreground text-sm underline"
-            onClick={() => {
-              setAudioBlob(null)
-              setTitle("")
-            }}
-          >
-            Record Again
-          </Button>
-        </CardFooter>
-      )}
-    </Card>
+        {audioBlob && (
+          <CardFooter className="flex flex-col gap-3 mt-4">
+            <Button
+              onClick={uploadRecording}
+              disabled={!title.trim() || loading}
+              className="w-full"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  Upload Recording
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="text-muted-foreground text-sm underline"
+              onClick={() => {
+                setAudioBlob(null)
+                setTitle("")
+                setElapsedTime(0)
+              }}
+            >
+              Record Again
+            </Button>
+          </CardFooter>
+        )}
+      </Card>
+    </div>
   )
 }

@@ -20,16 +20,8 @@ function MainContent() {
   const { selectedSource, showRecorder } = useSource()
 
   return (
-    <div className="flex-1 min-h-0 space-y-4 p-4">
-      {showRecorder && <RecorderView />}
-
-      {!selectedSource && !showRecorder && (
-        <div className="text-muted-foreground">
-          Please select a source to see the summary and transcription.
-        </div>
-      )}
-
-      {selectedSource && (
+    <div className="flex-1 min-h-0">
+      {selectedSource ? (
         <ResizablePanelGroup direction="horizontal">
           <ResizablePanel defaultSize={40}>
             <div className="h-full flex flex-col overflow-hidden">
@@ -48,6 +40,8 @@ function MainContent() {
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+      ) : (
+        <RecorderView />
       )}
     </div>
   )
