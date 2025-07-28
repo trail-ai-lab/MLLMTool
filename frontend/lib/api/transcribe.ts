@@ -1,5 +1,6 @@
 import { getAuth } from "firebase/auth"
 import { API_BASE_URL } from "@/lib/constants"
+import type { TranscribeResponse } from "@/types"
 
 export async function transcribeSource(path: string) {
   const user = getAuth().currentUser
@@ -19,5 +20,5 @@ export async function transcribeSource(path: string) {
 
   if (!res.ok) throw new Error("Failed to transcribe audio")
 
-  return res.json() as Promise<{ transcript: string; provider: string }>
+  return res.json() as Promise<TranscribeResponse>
 }

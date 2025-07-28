@@ -1,8 +1,7 @@
 from app.core.firebase_client import db as _db
 from app.services.model_registry import ModelRegistry
+from app.core.constants import DEFAULT_TOOL
 from datetime import datetime
-
-DEFAULT_TOOL = "slai"
 
 def get_summary(user_id: str, source_id: str, tool: str = DEFAULT_TOOL) -> dict:
     ref = (

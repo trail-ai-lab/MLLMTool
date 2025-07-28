@@ -1,8 +1,7 @@
 from google.cloud import firestore
 from datetime import datetime
 from app.core.firebase_client import db as _db
-
-DEFAULT_TOOL = "slai"
+from app.core.constants import DEFAULT_TOOL
 
 def get_transcript(user_id: str, source_id: str, tool: str = DEFAULT_TOOL):
     ref = (

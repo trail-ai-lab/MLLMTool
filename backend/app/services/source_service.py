@@ -6,9 +6,9 @@ import os
 
 from app.services.transcribe_service import TranscribeService
 from app.services.summary_service import summarize_and_save
+from app.core.constants import DEFAULT_TOOL
 
 GCS_AUDIO_BUCKET = os.getenv("GCS_AUDIO_BUCKET")
-DEFAULT_TOOL = "slai"
 
 def create_signed_upload_url(user_id: str, content_type: str):
     client = storage.Client()

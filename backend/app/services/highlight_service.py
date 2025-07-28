@@ -3,8 +3,7 @@
 from datetime import datetime
 from app.core.firebase_client import db as _db
 from app.services.model_registry import ModelRegistry
-
-DEFAULT_TOOL = "slai"
+from app.core.constants import DEFAULT_TOOL
 
 def generate_highlight(user_id: str, source_id: str, prompt: str, provider: str = "groq_highlight", tool: str = DEFAULT_TOOL):
     ref = (

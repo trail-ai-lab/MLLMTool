@@ -1,7 +1,6 @@
-// lib/api/highlights.ts
-
 import { getAuth } from "firebase/auth"
 import { API_BASE_URL } from "@/lib/constants"
+import type { HighlightResponse, HighlightHistory } from "@/types"
 
 export async function sendHighlightPrompt(sourceId: string, prompt: string) {
   const user = getAuth().currentUser
@@ -19,12 +18,7 @@ export async function sendHighlightPrompt(sourceId: string, prompt: string) {
 
   if (!res.ok) throw new Error("Highlight failed")
 
-  return res.json() as Promise<{
-    prompt: string
-    answer: string
-    highlightedSentence: string
-    created_at: string
-  }>
+  return res.json() as Promise<HighlightResponse>
 }
 
 export async function getHighlightHistory(sourceId: string) {
@@ -43,12 +37,5 @@ export async function getHighlightHistory(sourceId: string) {
 
   if (!res.ok) throw new Error("Failed to fetch highlight history")
 
-  return res.json() as Promise<
-    {
-      prompt: string
-      answer: string
-      highlightedSentence: string
-      created_at: string
-    }[]
-  >
+  return res.json() as Promise<HighlightHistory>
 }

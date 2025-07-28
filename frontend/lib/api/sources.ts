@@ -1,5 +1,12 @@
 import { getAuth } from "firebase/auth"
 import { API_BASE_URL } from "@/lib/constants"
+import type {
+  UploadUrlResponse,
+  SourceResponse,
+  SourceMetadata,
+  BaseSource,
+  DownloadUrlResponse,
+} from "@/types"
 
 // Generate a signed URL for uploading to GCS
 export async function getUploadUrl(contentType: string = "application/pdf") {
@@ -18,7 +25,7 @@ export async function getUploadUrl(contentType: string = "application/pdf") {
 
   if (!res.ok) throw new Error("Failed to get upload URL")
 
-  return res.json() as Promise<{ uploadUrl: string; path: string }>
+  return res.json() as Promise<UploadUrlResponse>
 }
 
 // Upload the actual file to GCS using the signed URL
@@ -35,16 +42,7 @@ export async function uploadFileToGCS(uploadUrl: string, file: File) {
 }
 
 // Save metadata for uploaded file in Firestore
-export async function saveFileMetadata(metadata: {
-  sourceId: string
-  path: string
-  name: string
-  fileType: string
-  size: number
-  groupId?: string
-  topic?: string
-  status?: string
-}) {
+export async function saveFileMetadata(metadata: SourceMetadata) {
   const user = getAuth().currentUser
   if (!user) throw new Error("User not authenticated")
   const token = await user.getIdToken()
@@ -60,7 +58,7 @@ export async function saveFileMetadata(metadata: {
 
   if (!res.ok) throw new Error("Failed to save metadata")
 
-  return res.json() as Promise<{ message: string; sourceId: string }>
+  return res.json() as Promise<SourceResponse>
 }
 
 // Fetch all uploaded file metadata (audio + pdf) for the current user
@@ -78,15 +76,7 @@ export async function getSources() {
 
   if (!res.ok) throw new Error("Failed to fetch sources")
 
-  return res.json() as Promise<
-    {
-      sourceId: string
-      name: string
-      fileType: "audio" | "pdf"
-      url: string
-      path: string
-    }[]
-  >
+  return res.json() as Promise<BaseSource[]>
 }
 
 // Delete a specific source by sourceId
@@ -104,7 +94,7 @@ export async function deleteSource(sourceId: string) {
 
   if (!res.ok) throw new Error("Failed to delete source")
 
-  return res.json() as Promise<{ message: string; sourceId: string }>
+  return res.json() as Promise<SourceResponse>
 }
 
 export async function getDownloadUrl(path: string) {
@@ -122,5 +112,5 @@ export async function getDownloadUrl(path: string) {
   })
 
   if (!res.ok) throw new Error("Failed to get download URL")
-  return res.json() as Promise<{ downloadUrl: string }>
+  return res.json() as Promise<DownloadUrlResponse>
 }

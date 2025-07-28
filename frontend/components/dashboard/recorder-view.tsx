@@ -15,6 +15,14 @@ import {
   saveFileMetadata,
 } from "@/lib/api/sources"
 import { useSource } from "@/lib/contexts/source-context"
+import {
+  AUDIO_MIME_TYPE,
+  FALLBACK_AUDIO_MIME_TYPE,
+  DEFAULT_GROUP_ID,
+  DEFAULT_RECORDED_TOPIC,
+  RECORDING_WARMUP_DELAY,
+  TIMER_INTERVAL,
+} from "@/lib/constants"
 
 export function RecorderView({ onComplete }: { onComplete?: () => void }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -51,9 +59,9 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm"
+      const mimeType = MediaRecorder.isTypeSupported(AUDIO_MIME_TYPE)
+        ? AUDIO_MIME_TYPE
+        : FALLBACK_AUDIO_MIME_TYPE
 
       const recorder = new MediaRecorder(stream, { mimeType })
       audioChunks.current = []
@@ -73,8 +81,8 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
         recorder.start()
         timerRef.current = setInterval(() => {
           setElapsedTime((prev) => prev + 1)
-        }, 1000)
-      }, 400) // 300ms warm-up (can adjust to 500ms if needed)
+        }, TIMER_INTERVAL)
+      }, RECORDING_WARMUP_DELAY)
     } catch (err) {
       console.error("Microphone access error:", err)
       toast.error("Microphone permission denied or not available.")
@@ -120,8 +128,8 @@ export function RecorderView({ onComplete }: { onComplete?: () => void }) {
       type: "audio/webm",
     })
     const sourceId = uuidv4()
-    const groupId = "group-1"
-    const topic = "Recorded Audio"
+    const groupId = DEFAULT_GROUP_ID
+    const topic = DEFAULT_RECORDED_TOPIC
 
     try {
       const { uploadUrl, path } = await getUploadUrl(file.type)

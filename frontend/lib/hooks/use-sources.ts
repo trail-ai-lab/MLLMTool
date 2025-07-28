@@ -2,16 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { getSources } from "@/lib/api/sources"
-import { FileAudio, FileText, type LucideIcon } from "lucide-react"
-
-export interface Source {
-  path: string
-  sourceId: string
-  name: string
-  fileType: "audio" | "pdf"
-  url: string
-  icon: LucideIcon
-}
+import { FileAudio, FileText } from "lucide-react"
+import type { Source, BaseSource } from "@/types"
 
 export function useSources() {
   const [sources, setSources] = useState<Source[]>([])
@@ -24,7 +16,7 @@ export function useSources() {
 
       // ✅ Add icon dynamically
       const sourcesWithIcons: Source[] = res.map(
-        (src: Omit<Source, "icon">) => ({
+        (src: BaseSource) => ({
           ...src,
           icon: src.fileType === "audio" ? FileAudio : FileText,
         })
@@ -46,7 +38,7 @@ export function useSources() {
     fetchSources()
   }, [fetchSources])
 
-  const addSource = useCallback((newSource: Omit<Source, "icon">) => {
+  const addSource = useCallback((newSource: BaseSource) => {
     const sourceWithIcon: Source = {
       ...newSource,
       icon: newSource.fileType === "audio" ? FileAudio : FileText,

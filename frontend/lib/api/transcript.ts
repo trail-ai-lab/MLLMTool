@@ -1,5 +1,6 @@
 import { getAuth } from "firebase/auth"
 import { API_BASE_URL } from "@/lib/constants"
+import type { TranscriptResponse } from "@/types"
 
 export async function getTranscript(sourceId: string) {
   const user = getAuth().currentUser
@@ -15,9 +16,5 @@ export async function getTranscript(sourceId: string) {
 
   if (!res.ok) throw new Error("Transcript not found")
 
-  return res.json() as Promise<{
-    text: string
-    provider: string
-    created_at?: string
-  }>
+  return res.json() as Promise<TranscriptResponse>
 }

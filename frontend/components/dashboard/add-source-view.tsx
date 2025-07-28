@@ -17,6 +17,13 @@ import {
   saveFileMetadata,
 } from "@/lib/api/sources"
 import { useSource } from "@/lib/contexts/source-context"
+import {
+  ACCEPTED_FILE_TYPES,
+  DEFAULT_GROUP_ID,
+  DEFAULT_TOPIC,
+  BYTES_TO_KB,
+} from "@/lib/constants"
+import type { FileType } from "@/types"
 
 export function AddSourceView() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -41,14 +48,14 @@ export function AddSourceView() {
 
     setLoading(true)
     const sourceId = uuidv4()
-    const groupId = "group-1"
-    const topic = "Group discussion"
+    const groupId = DEFAULT_GROUP_ID
+    const topic = DEFAULT_TOPIC
 
     try {
       const { uploadUrl, path } = await getUploadUrl(file.type)
       await uploadFileToGCS(uploadUrl, file)
 
-      const fileType: "audio" | "pdf" = file.type.startsWith("audio")
+      const fileType: FileType = file.type.startsWith("audio")
         ? "audio"
         : "pdf"
 
@@ -129,7 +136,7 @@ export function AddSourceView() {
             <Input
               id="file"
               type="file"
-              accept=".webm,.mp3,.wav,.pdf"
+              accept={ACCEPTED_FILE_TYPES}
               ref={fileInputRef}
               className="hidden"
               onChange={(e) => {
@@ -157,7 +164,7 @@ export function AddSourceView() {
                 />
                 <p className="text-sm text-gray-600 mt-1">
                   Original: <strong>{file.name}</strong> (
-                  {Math.round(file.size / 1024)} KB)
+                  {Math.round(file.size / BYTES_TO_KB)} KB)
                 </p>
               </>
             ) : (

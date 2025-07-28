@@ -1,5 +1,6 @@
 import { getAuth } from "firebase/auth"
 import { API_BASE_URL } from "@/lib/constants"
+import type { SummaryResponse } from "@/types"
 
 export async function getSummary(sourceId: string, tool: string = "slai") {
   const user = getAuth().currentUser
@@ -15,5 +16,5 @@ export async function getSummary(sourceId: string, tool: string = "slai") {
 
   if (!res.ok) throw new Error("Failed to fetch summary")
 
-  return res.json() as Promise<{ text: string }>
+  return res.json() as Promise<SummaryResponse>
 }

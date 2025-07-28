@@ -10,12 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useSource } from "@/lib/contexts/source-context"
 import { sendHighlightPrompt, getHighlightHistory } from "@/lib/api/highlights"
-
-type Message = {
-  role: "user" | "agent"
-  content: string
-  highlight?: string
-}
+import type { Message } from "@/types"
 
 export function ChatView() {
   const { selectedSource } = useSource()

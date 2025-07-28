@@ -3,21 +3,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { getTranscript } from "@/lib/api/transcript"
 import { getSummary } from "@/lib/api/summary"
-import { useSources, Source } from "@/lib/hooks/use-sources"
-
-type SourceContextType = {
-  selectedSource: Source | null
-  setSelectedSource: (source: Source | null) => void
-  transcript: string | null
-  loadingTranscript: boolean
-  summary: string | null
-  loadingSummary: boolean
-  sources: Source[]
-  loadingSources: boolean
-  refreshSources: () => void
-  addSource: (source: Omit<Source, "icon">) => void
-  removeSource: (sourceId: string) => void
-}
+import { useSources } from "@/lib/hooks/use-sources"
+import type { Source, BaseSource, SourceContextType } from "@/types"
 
 const SourceContext = createContext<SourceContextType | undefined>(undefined)
 
