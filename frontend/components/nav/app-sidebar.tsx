@@ -67,8 +67,9 @@ export function AppSidebar({
                   alt="TRAIL Logo"
                   width={24}
                   height={24}
-                  priority
                   className="invert-0 dark:invert"
+                  style={{ width: "24px", height: "24px" }}
+                  priority
                 />
                 <span className="text-base font-semibold">SLAI</span>
               </a>

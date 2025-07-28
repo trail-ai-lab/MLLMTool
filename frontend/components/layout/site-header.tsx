@@ -6,6 +6,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ModeToggle } from "./model-toggle"
 import { useSource } from "@/lib/contexts/source-context"
 import { usePathname } from "next/navigation"
+import { removeFileExtension } from "@/lib/utils/file-utils"
 
 export function SiteHeader() {
   const { selectedSource } = useSource()
@@ -14,7 +15,7 @@ export function SiteHeader() {
   const getTitle = () => {
     if (pathname === "/recorder") return "Record Audio"
     if (pathname === "/add-source") return "Add Source"
-    if (pathname.startsWith("/source/") && selectedSource) return selectedSource.name
+    if (pathname.startsWith("/source/") && selectedSource) return removeFileExtension(selectedSource.name)
     return "Dashboard"
   }
 
