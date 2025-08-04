@@ -1,0 +1,27 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    dir: "apps/backend"
+    args: ["build", "-t", "gcr.io/trail-lab-dev/slai-backend", "."]
+
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/trail-lab-dev/slai-backend"]
+
+  - name: "gcr.io/cloud-builders/gcloud"
+    args:
+      [
+        "run",
+        "deploy",
+        "slai-backend",
+        "--image",
+        "gcr.io/trail-lab-dev/slai-backend",
+        "--region",
+        "us-central1",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated",
+        "--set-env-vars",
+        "GOOGLE_APPLICATION_CREDENTIALS_JSON=${_GOOGLE_APPLICATION_CREDENTIALS_JSON},GCS_AUDIO_BUCKET=${_GCS_AUDIO_BUCKET},FRONTEND_URL=${_FRONTEND_URL},GROQ_API_KEY=${_GROQ_API_KEY}",
+      ]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
