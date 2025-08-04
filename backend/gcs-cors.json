@@ -1,6 +1,9 @@
 [
   {
-    "origin": ["http://localhost:3000"],
+    "origin": [
+      "http://localhost:3000",
+      "https://slai-frontend-141651492861.us-central1.run.app"
+    ],
     "method": ["PUT"],
     "responseHeader": ["Content-Type"],
     "maxAgeSeconds": 3600
