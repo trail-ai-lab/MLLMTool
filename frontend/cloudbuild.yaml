@@ -1,6 +1,6 @@
 steps:
   - name: "gcr.io/cloud-builders/docker"
-    dir: "apps/frontend"
+    dir: "frontend"
     args:
       - "build"
       - "-t"

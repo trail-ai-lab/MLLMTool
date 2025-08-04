@@ -1,6 +1,6 @@
 steps:
   - name: "gcr.io/cloud-builders/docker"
-    dir: "apps/backend"
+    dir: "backend"
     args: ["build", "-t", "gcr.io/trail-lab-dev/slai-backend", "."]
 
   - name: "gcr.io/cloud-builders/docker"
