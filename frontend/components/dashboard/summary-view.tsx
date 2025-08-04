@@ -35,13 +35,15 @@ export default function SummaryView() {
     <Card className="m-4">
       <CardContent>
         <h4 className="text-lg font-semibold mb-4">Summary</h4>
-        {loadingSummary ? (
-          <p>Summarizing...</p>
-        ) : summary ? (
-          renderSummary()
-        ) : (
-          <p>Summary will be displayed here.</p>
-        )}
+        <div className="space-y-4 text-sm leading-relaxed">
+          {loadingSummary ? (
+            <p>Summarizing...</p>
+          ) : summary ? (
+            renderSummary()
+          ) : (
+            <p>Summary will be displayed here.</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
